@@ -1,0 +1,4 @@
+/* الطباعة و PDF: النموذج يخفي القوائم ويطبع الورقة فقط (app.css @media print). هنا فقط ما يكمّل ذلك. */
+@media print {
+  #modal-root, #tip { display: none !important; }
+}

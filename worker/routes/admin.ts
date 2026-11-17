@@ -1,16 +1,13 @@
 import { Hono } from 'hono';
-import { z } from 'zod';
 import type { AppEnv } from '../env';
-import { createUserSchema, resetPasswordSchema, settingsSchema, userStatusSchema } from '../../shared/api';
+import { createUserSchema, logQuerySchema, nameSchema, resetPasswordSchema, userStatusSchema, waSchema, weekStartSchema } from '../../shared/api';
 import { body, query } from '../lib/validate';
 import { ctxOf } from '../middleware/session';
 import * as users from '../services/users';
-import { getSettings, updateSettings } from '../services/settings';
-import { auditPage } from '../services/audit';
+import * as settings from '../services/settings';
+import { logPage } from '../services/audit';
 
-const auditQuery = z.object({ before: z.coerce.number().int().positive().optional(), limit: z.coerce.number().int().min(1).max(200).default(50) });
-
-/** «الإدارة» — صاحب المحل فقط (requireOwnerRole في index.ts). */
+/** «الإدارة» — صاحب المحل فقط (requireOwnerRole في app.ts). */
 export const adminRoutes = new Hono<AppEnv>()
   .get('/users', async (c) => c.json({ users: await users.listUsers(ctxOf(c)) }))
   .post('/users', async (c) => c.json(await users.createEntryUser(ctxOf(c), await body(c, createUserSchema)), 201))
@@ -22,11 +19,11 @@ export const adminRoutes = new Hono<AppEnv>()
     await users.resetPassword(ctxOf(c), c.req.param('id'), await body(c, resetPasswordSchema));
     return c.json({ ok: true });
   })
-  .put('/settings', async (c) => c.json(await updateSettings(ctxOf(c), await body(c, settingsSchema))))
-  .get('/audit', async (c) => {
-    const q = query(c, auditQuery);
-    return c.json({ entries: await auditPage(ctxOf(c), { beforeId: q.before, limit: q.limit }) });
+  .put('/settings/week-start', async (c) => c.json(await settings.setWeekStart(ctxOf(c), (await body(c, weekStartSchema)).weekStart)))
+  .put('/settings/wa', async (c) => c.json(await settings.setWa(ctxOf(c), (await body(c, waSchema)).wa)))
+  .post('/settings/cats', async (c) => c.json(await settings.addCat(ctxOf(c), (await body(c, nameSchema)).name)))
+  .post('/settings/names', async (c) => c.json(await settings.addName(ctxOf(c), (await body(c, nameSchema)).name)))
+  .get('/log', async (c) => {
+    const q = query(c, logQuerySchema);
+    return c.json({ entries: await logPage(ctxOf(c), { kind: q.kind, beforeId: q.before }) });
   });
-
-/** الإعدادات للقراءة لكل المستخدمين (العملة والتوقيت لازمة للواجهة). */
-export const settingsRoutes = new Hono<AppEnv>().get('/settings', async (c) => c.json(await getSettings(ctxOf(c))));

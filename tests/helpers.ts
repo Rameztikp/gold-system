@@ -62,7 +62,16 @@ export async function otherBranchClient(env: Env): Promise<Client> {
   return c;
 }
 
-export const saleLine = (dayId: string, over: Record<string, unknown> = {}) => ({
-  id: uuidv7(), dayId, kind: 'sale', description: 'خاتم ذهب', pieces: 1, weightCg: 625,
-  amountFils: 150000, wagesFils: 5000, commissionFils: 1000, extraFils: 500, ...over,
-});
+export const sale = (over: Record<string, unknown> = {}) => ({ d: 'خاتم ذهب', g: 6, m: '25', k: '21', mk: 50, p: 1500, ...over });
+export const purch = (over: Record<string, unknown> = {}) => ({ d: 'ليرة', g: 7, m: '2', a: 3050, t: 'كسر', ...over });
+export const exp = (over: Record<string, unknown> = {}) => ({ d: 'ضيافة', c: 'ضيافة وكفتيريا', emp: '', a: 70, ...over });
+
+/** يفتح يومًا ويرجع تاريخه. */
+export async function openDay(c: Client, date = '2026-10-01', buy = 425): Promise<string> {
+  const r = await c.post('/days', { date, buy, sell: null });
+  if (r.status !== 201) throw new Error(`open day ${r.status} ${JSON.stringify(r.json)}`);
+  return date;
+}
+
+export const addLine = (c: Client, at: { date: string; sec: string; id?: string }, line: Record<string, unknown>) =>
+  c.post(`/days/${at.date}/lines`, { id: at.id ?? uuidv7(), sec: at.sec, line });

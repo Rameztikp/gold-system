@@ -1,38 +1,30 @@
-import { toLatinDigits } from './weight';
+/** البحث واقتراحات البيان تتجاهل فروق الكتابة الصغيرة: أ/إ/آ وا، ة وه، الحركات، التطويل، الأرقام العربية. (النموذج: normC/normS/findWord) */
 
-const DIACRITICS = /[ً-ٰٟـ]/g;
+export const latin = (s: unknown): string => String(s ?? '')
+  .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+  .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
 
-/** تطبيع عربي للبحث. */
-export function normalizeArabic(s: string): string {
-  return toLatinDigits(s)
-    .replace(DIACRITICS, '')
-    .replace(/[أإآٱ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .replace(/ؤ/g, 'و')
-    .replace(/ئ/g, 'ي')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
+/** رقم من نص المستخدم: أرقام عربية، فاصلة عشرية عربية، فواصل الآلاف. NaN إذا فارغ. */
+export function parseNum(v: unknown): number {
+  const s = latin(v).trim().replace(/٫/g, '.').replace(/[,،\s]/g, '');
+  return s === '' ? NaN : Number(s);
 }
 
-const words = (s: string): string[] => normalizeArabic(s).split(' ').filter(Boolean);
-
-/** كل كلمة في البحث تطابق بداية كلمة في النص. */
-export function matchesQuery(text: string, query: string): boolean {
-  const q = words(query);
-  if (q.length === 0) return false;
-  const t = words(text);
-  return q.every((qw) => t.some((tw) => tw.startsWith(qw)));
+const AR_EQ: Record<string, string> = { 'أ': 'ا', 'إ': 'ا', 'آ': 'ا', 'ٱ': 'ا', 'ة': 'ه' };
+/** ملاحظة: في النموذج كان مدى الحركات يشمل الأرقام العربية (٠-٩) فتُحذف؛ هنا تُحوَّل أولًا ثم تُحذف الحركات (D-19). */
+export function normC(ch: string): string {
+  const c = latin(ch);
+  return /[\u064B-\u065F\u0670\u0640]/.test(c) ? '' : (AR_EQ[c] || c).toLowerCase();
 }
+export const normS = (s: unknown): string => [...String(s ?? '')].map(normC).join('').replace(/\s+/g, ' ').trim();
+export const isWordCh = (c: string | undefined): boolean => !!c && /[\p{L}\p{N}]/u.test(c);
 
-/** اقتراحات للبيان أثناء الكتابة: الأكثر تكرارًا أولًا. */
-export function suggestDescriptions(history: readonly string[], prefix: string, limit = 6): string[] {
-  if (normalizeArabic(prefix) === '') return [];
-  const counts = new Map<string, number>();
-  for (const h of history) {
-    const v = h.trim();
-    if (v && matchesQuery(v, prefix)) counts.set(v, (counts.get(v) ?? 0) + 1);
+/** المطابقة من بداية الكلمة فقط (أو بعد «ال» مباشرة)، فـ«علي» ما تلقى «تعليقة». */
+export function findWord(ns: string, qn: string): number {
+  if (!qn) return -1;
+  for (let i = ns.indexOf(qn); i >= 0; i = ns.indexOf(qn, i + 1)) {
+    if (!isWordCh(ns[i - 1])) return i;
+    if (i >= 2 && ns.slice(i - 2, i) === 'ال' && !isWordCh(ns[i - 3])) return i;
   }
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([v]) => v);
+  return -1;
 }

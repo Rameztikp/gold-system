@@ -8,6 +8,9 @@ export const branches = sqliteTable('branches', {
   timezone: text('timezone').notNull(),
   weekStart: integer('week_start').notNull(),
   version: integer('version').notNull().default(1),
+  catsJson: text('cats_json'),
+  namesJson: text('names_json'),
+  wa: text('wa'),
 });
 
 export const users = sqliteTable('users', {
@@ -58,56 +61,70 @@ export const sessions = sqliteTable('sessions', {
   revokedAt: integer('revoked_at'),
 });
 
-export const days = sqliteTable('days', {
+/* الجداول القديمة days/lines/photos (0000_init) فارغة ومتروكة بدون حذف (D-18). */
+
+/** يوم الدفتر بشكل النموذج v16. المبالغ بالفلس والأوزان بأجزاء المئة من الجرام. */
+export const ledgerDays = sqliteTable('ledger_days', {
   id: text('id').primaryKey(),
   branchId: text('branch_id').notNull(),
   date: text('date').notNull(),
-  goldPriceFils: integer('gold_price_fils'),
+  buyFils: integer('buy_fils').notNull(),
+  sellFils: integer('sell_fils'),
+  commFils: integer('comm_fils'),
+  xLabel: text('x_label').notNull().default(''),
+  xFils: integer('x_fils'),
+  status: text('status', { enum: ['open', 'ok', 'lerr'] }).notNull().default('open'),
   note: text('note').notNull().default(''),
-  ledgerSalesFils: integer('ledger_sales_fils'),
-  ledgerSalesCg: integer('ledger_sales_cg'),
-  ledgerPurchasesFils: integer('ledger_purchases_fils'),
-  ledgerPurchasesCg: integer('ledger_purchases_cg'),
-  ledgerExpensesFils: integer('ledger_expenses_fils'),
-  ledgerWagesFils: integer('ledger_wages_fils'),
-  status: text('status', { enum: ['matched', 'ledger_error', 'not_compared'] }).notNull().default('not_compared'),
+  lSales: integer('l_sales'),
+  lSw: integer('l_sw'),
+  lMk: integer('l_mk'),
+  lTot: integer('l_tot'),
+  lPurch: integer('l_purch'),
+  lPw: integer('l_pw'),
   version: integer('version').notNull().default(1),
   createdBy: text('created_by').notNull(),
   createdAt: integer('created_at').notNull(),
-}, (t) => [uniqueIndex('days_branch_date').on(t.branchId, t.date)]);
+}, (t) => [uniqueIndex('ledger_days_branch_date').on(t.branchId, t.date)]);
 
-export const lines = sqliteTable('lines', {
+/** سطر بيع أو شراء أو مصروف. الإلغاء لا يحذف: x_reason/x_at/x_by. */
+export const ledgerLines = sqliteTable('ledger_lines', {
   id: text('id').primaryKey(),
   branchId: text('branch_id').notNull(),
   dayId: text('day_id').notNull(),
-  kind: text('kind', { enum: ['sale', 'purchase', 'expense'] }).notNull(),
+  sec: text('sec', { enum: ['sales', 'purch', 'exp'] }).notNull(),
   position: integer('position').notNull(),
-  description: text('description').notNull(),
-  searchText: text('search_text').notNull(),
-  pieces: integer('pieces').notNull().default(0),
-  weightCg: integer('weight_cg').notNull().default(0),
+  d: text('d').notNull(),
+  g: integer('g'),
+  m: text('m').notNull().default(''),
+  k: text('k').notNull().default(''),
+  mkFils: integer('mk_fils'),
   amountFils: integer('amount_fils').notNull(),
-  wagesFils: integer('wages_fils').notNull().default(0),
-  commissionFils: integer('commission_fils').notNull().default(0),
-  extraFils: integer('extra_fils').notNull().default(0),
-  cancelled: integer('cancelled', { mode: 'boolean' }).notNull().default(false),
-  cancelReason: text('cancel_reason'),
+  t: text('t').notNull().default(''),
+  c: text('c').notNull().default(''),
+  emp: text('emp').notNull().default(''),
+  xReason: text('x_reason'),
+  xAt: integer('x_at'),
+  xBy: text('x_by'),
   version: integer('version').notNull().default(1),
   createdBy: text('created_by').notNull(),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
-}, (t) => [index('lines_day').on(t.branchId, t.dayId), index('lines_kind').on(t.branchId, t.kind)]);
+}, (t) => [index('ledger_lines_day').on(t.branchId, t.dayId, t.sec, t.position)]);
 
-export const photos = sqliteTable('photos', {
+/** صور صفحات الدفتر. «الإزالة» تخفي الصورة فقط (removed_at) ولا تحذفها. */
+export const dayPhotos = sqliteTable('day_photos', {
   id: text('id').primaryKey(),
   branchId: text('branch_id').notNull(),
   dayId: text('day_id').notNull(),
+  label: text('label', { enum: ['sales', 'cash', 'other'] }).notNull(),
   r2Key: text('r2_key').notNull(),
   bytes: integer('bytes').notNull(),
   contentType: text('content_type').notNull(),
   createdBy: text('created_by').notNull(),
   createdAt: integer('created_at').notNull(),
-}, (t) => [index('photos_day').on(t.branchId, t.dayId)]);
+  removedAt: integer('removed_at'),
+  removedBy: text('removed_by'),
+}, (t) => [index('day_photos_day').on(t.branchId, t.dayId)]);
 
 export const auditLog = sqliteTable('audit_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -120,6 +137,11 @@ export const auditLog = sqliteTable('audit_log', {
   afterJson: text('after_json'),
   reason: text('reason'),
   at: integer('at').notNull(),
+  kind: text('kind'),
+  title: text('title'),
+  detail: text('detail'),
+  dayDate: text('day_date'),
+  who: text('who'),
 }, (t) => [index('audit_branch_at').on(t.branchId, t.at)]);
 
 export const securityLog = sqliteTable('security_log', {

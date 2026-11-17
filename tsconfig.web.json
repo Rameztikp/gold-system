@@ -8,10 +8,14 @@
     ],
     "types": [
       "vite/client"
-    ]
+    ],
+    "noUncheckedIndexedAccess": false
   },
   "include": [
     "shared",
     "web"
+  ],
+  "exclude": [
+    "**/*.test.ts"
   ]
 }

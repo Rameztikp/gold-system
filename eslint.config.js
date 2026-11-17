@@ -9,7 +9,7 @@ const layer = (dir, banned) => ({
 });
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', '.wrangler', 'migrations', 'web/public', 'e2e'] },
+  { ignores: ['dist', 'node_modules', '.wrangler', 'migrations', 'web/public', 'e2e', 'prototype'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

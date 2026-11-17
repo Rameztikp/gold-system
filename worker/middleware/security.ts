@@ -12,7 +12,7 @@ export function relyingParty(env: Env, url: string): { RP_ID: string; RP_NAME: s
 }
 
 const CSP = [
-  "default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' blob: data:",
+  "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' blob: data:",
   "connect-src 'self'", "font-src 'self'", "object-src 'none'", "base-uri 'none'",
   "frame-ancestors 'none'", "form-action 'self'",
 ].join('; ');

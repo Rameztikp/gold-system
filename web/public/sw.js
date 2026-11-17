@@ -1,5 +1,5 @@
 // خدمة بسيطة: تحفظ واجهة التطبيق فقط. بيانات /api لا تُخزَّن أبدًا.
-const CACHE = 'gold-shell-v2';
+const CACHE = 'gold-shell-v3';
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon.svg'])));
   self.skipWaiting();

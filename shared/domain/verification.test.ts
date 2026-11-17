@@ -1,29 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { computeTotals } from './totals';
-import type { Line } from './line';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { T, sumTotals, compareLedger, dayFromSeed, type SeedDay } from './index';
 
 /**
- * أرقام التحقق لأكتوبر 2026 — ثابتة ولا تُعدَّل.
- * البيانات (data.json) غير متاحة بعد (Q-01). عند وصولها ضعها في tests/fixtures/october-2026.json
- * بصيغة مصفوفة Line وسيعمل الاختبار تلقائيًا.
+ * أرقام التحقق لأكتوبر 2026 — ثابتة ولا تُعدَّل (من الأمر الأصلي).
+ * البيانات من النموذج المعتمد: prototype/data.json.
  */
 const EXPECTED = {
-  salesFils: 57461500, salesPieces: 112, salesCg: 114369,
-  purchasesFils: 40627000, purchasesCg: 97183,
-  expensesFils: 2045500, expensesCount: 25,
-  wagesFils: 2166000,
+  sales: 574615, sn: 112, sw: 1143.69,
+  purch: 406270, pw: 971.83,
+  exp: 20455, en: 25,
+  tot: 21660,
 };
 
-const fixtures = import.meta.glob<{ default: Line[] }>('../../tests/fixtures/october-2026.json', { eager: true });
-const october = Object.values(fixtures)[0]?.default;
+const raw = JSON.parse(readFileSync(join(import.meta.dirname, '../../prototype/data.json'), 'utf8')) as SeedDay[];
+let n = 0;
+const days = raw.map((d) => dayFromSeed(d, () => `L${++n}`));
 
-describe.skipIf(!october)('أرقام التحقق — أكتوبر 2026', () => {
-  it('كل المجاميع تطابق بالضبط', () => {
-    const t = computeTotals(october ?? []);
-    expect({
-      salesFils: t.salesFils, salesPieces: t.salesPieces, salesCg: t.salesCg,
-      purchasesFils: t.purchasesFils, purchasesCg: t.purchasesCg,
-      expensesFils: t.expensesFils, expensesCount: t.expensesCount, wagesFils: t.wagesFils,
-    }).toEqual(EXPECTED);
+describe('أرقام التحقق — أكتوبر 2026', () => {
+  it('المجاميع تطابق بالضبط', () => {
+    const t = sumTotals(days.map(T));
+    expect({ sales: t.sales, sn: t.sn, sw: t.sw, purch: t.purch, pw: t.pw, exp: t.exp, en: t.en, tot: t.tot }).toEqual(EXPECTED);
+  });
+  it('كل يوم «مطابق» في الدفتر يطابق فعلًا، واليوم 9 فيه الفرق المعروف', () => {
+    for (const d of days) {
+      const r = compareLedger(T(d), d.ledger);
+      if (d.status === 'ok') expect(r.bad, d.id).toEqual([]);
+      else expect(r.bad.length, d.id).toBeGreaterThan(0);
+    }
   });
 });

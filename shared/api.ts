@@ -1,44 +1,46 @@
 import { z } from 'zod';
 
+/** مخططات الطلبات — نفس شروط readLine/savePrices/saveDayData في النموذج، ويتحقق منها الخادم. */
+
 const int = z.number().int();
-const nonNeg = int.min(0).max(1_000_000_000_00);
+/** مبلغ بالدرهم بخانتين عشريتين كحد أقصى. */
+const amount = z.number().nonnegative().max(1_000_000_000)
+  .refine((n) => Math.abs(Math.round(n * 100) - n * 100) < 1e-6, 'خانتان عشريتان كحد أقصى');
+const positive = amount.refine((n) => n > 0, 'لازم أكبر من صفر');
 export const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const uuidSchema = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 
-export const lineValuesSchema = z.object({
-  kind: z.enum(['sale', 'purchase', 'expense']),
-  description: z.string().trim().max(200),
-  pieces: int.min(0).max(100_000),
-  weightCg: nonNeg,
-  amountFils: nonNeg,
-  wagesFils: nonNeg,
-  commissionFils: nonNeg,
-  extraFils: nonNeg,
+export const KARATS = ['24', '22', '21', '18'] as const;
+const karats = z.string().max(20).refine((s) => s === '' || s.split(' + ').every((k) => (KARATS as readonly string[]).includes(k)));
+const desc = z.string().trim().min(1).max(200);
+const grams = int.min(0).max(100_000).nullable();
+const milli = z.string().regex(/^\d{0,2}$/);
+
+export const saleSchema = z.object({ d: desc, g: grams, m: milli, k: karats, mk: amount.nullable(), p: positive });
+export const purchSchema = z.object({ d: desc, g: grams, m: milli, a: positive, t: z.enum(['كسر', 'جديد']) })
+  .refine((l) => l.g !== null || l.m !== '', { message: 'كل شراء له وزن', path: ['g'] });
+export const expSchema = z.object({ d: desc, c: z.string().trim().min(1).max(60), emp: z.string().trim().max(60), a: positive });
+
+export const lineFields = { sales: saleSchema, purch: purchSchema, exp: expSchema } as const;
+export const secSchema = z.enum(['sales', 'purch', 'exp']);
+
+export const addLineSchema = z.object({ id: uuidSchema, sec: secSchema, line: z.record(z.string(), z.unknown()) });
+export const editLineSchema = z.object({ line: z.record(z.string(), z.unknown()), v: int });
+export const cancelLineSchema = z.object({ r: z.string().trim().min(1).max(300), v: int });
+export const restoreLineSchema = z.object({ v: int });
+
+export const newDaySchema = z.object({ date: dateSchema, buy: positive, sell: positive.nullable() });
+export const pricesSchema = z.object({ buy: positive, sell: positive.nullable(), v: int });
+export const dayDataSchema = z.object({ comm: amount.nullable(), xl: z.string().trim().max(60), x: amount.nullable(), v: int });
+
+const ledgerVal = z.number().nonnegative().max(1_000_000_000).optional();
+export const compareSchema = z.object({
+  ledger: z.object({ sales: ledgerVal, sw: ledgerVal, mk: ledgerVal, tot: ledgerVal, purch: ledgerVal, pw: ledgerVal }),
+  lerr: z.boolean(),
+  v: int,
 });
-export type LineInput = z.infer<typeof lineValuesSchema>;
 
-export const createLineSchema = lineValuesSchema.extend({ id: uuidSchema, dayId: z.string().min(1) });
-export const updateLineSchema = lineValuesSchema.extend({ version: int });
-export const cancelLineSchema = z.object({ reason: z.string().trim().min(2).max(300), version: int });
-export const restoreLineSchema = z.object({ version: int });
-
-export const createDaySchema = z.object({ date: dateSchema });
-export const updateDayHeaderSchema = z.object({
-  goldPriceFils: nonNeg.nullable(),
-  note: z.string().max(500),
-  version: int,
-});
-
-const ledgerValue = nonNeg.nullable();
-export const ledgerSchema = z.object({
-  salesFils: ledgerValue, salesCg: ledgerValue,
-  purchasesFils: ledgerValue, purchasesCg: ledgerValue,
-  expensesFils: ledgerValue, wagesFils: ledgerValue,
-});
-export const compareSchema = z.object({ ledger: ledgerSchema, confirmLedgerError: z.boolean(), version: int });
-
-export const rangeSchema = z.object({ from: dateSchema, to: dateSchema });
-export const dashboardQuerySchema = z.object({ period: z.enum(['day', 'week', 'month']), date: dateSchema });
+export const photoLabelSchema = z.object({ label: z.enum(['sales', 'cash', 'other']) });
 
 export const passwordLoginSchema = z.object({ username: z.string().trim().min(1).max(60), password: z.string().min(1).max(200) });
 export const recoveryLoginSchema = z.object({ username: z.string().trim().min(1).max(60), code: z.string().trim().min(4).max(40) });
@@ -58,11 +60,10 @@ export const createUserSchema = z.object({
 export const userStatusSchema = z.object({ status: z.enum(['active', 'suspended']), version: int });
 export const resetPasswordSchema = z.object({ password: z.string().min(10).max(200), version: int });
 
-export const settingsSchema = z.object({
-  name: z.string().trim().min(2).max(60),
-  currency: z.string().trim().regex(/^[A-Z]{3}$/),
-  countryCode: z.string().trim().regex(/^\+?\d{1,4}$/),
-  timezone: z.string().trim().min(3).max(60),
-  weekStart: int.min(0).max(6),
-  version: int,
+export const weekStartSchema = z.object({ weekStart: z.union([z.literal(6), z.literal(0), z.literal(1)]) });
+export const waSchema = z.object({ wa: z.string().regex(/^\d{0,15}$/) });
+export const nameSchema = z.object({ name: z.string().trim().min(1).max(60) });
+export const logQuerySchema = z.object({
+  kind: z.enum(['all', 'add', 'edit', 'cancel', 'day', 'check']).default('all'),
+  before: z.coerce.number().int().positive().optional(),
 });

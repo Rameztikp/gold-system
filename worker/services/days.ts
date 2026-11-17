@@ -1,85 +1,103 @@
-import { runBatch } from '../repo/batch';
-import { computeTotals, compareWithLedger, statusAfterCompare, isValidDate, type Ledger, type Totals, type CompareItem } from '../../shared/domain';
 import type { z } from 'zod';
-import type { compareSchema, updateDayHeaderSchema } from '../../shared/api';
-import * as daysRepo from '../repo/days';
-import * as linesRepo from '../repo/lines';
-import * as photosRepo from '../repo/photos';
-import { auditAfterChangeQuery } from '../repo/audit';
+import { compareLedger, hasVal, isValidDate, lerrNote, T, toFils, uuidv7, CMP_ROWS, pr, type Day } from '../../shared/domain';
+import type { compareSchema, dayDataSchema, newDaySchema, pricesSchema } from '../../shared/api';
+import * as ledgerRepo from '../repo/ledger';
+import { dayToWire, ledgerCols } from '../repo/wire';
+import { auditAfterChangeQuery, type AuditEntry } from '../repo/audit';
+import { runBatch } from '../repo/batch';
 import { AppError, notFound } from '../lib/errors';
 import { type Ctx, commitVersioned } from './context';
-import { uuidv7 } from '../../shared/domain';
 
-export const ledgerOf = (d: daysRepo.DayRow): Ledger => ({
-  salesFils: d.ledgerSalesFils, salesCg: d.ledgerSalesCg,
-  purchasesFils: d.ledgerPurchasesFils, purchasesCg: d.ledgerPurchasesCg,
-  expensesFils: d.ledgerExpensesFils, wagesFils: d.ledgerWagesFils,
-});
-
-export interface DayView {
-  day: daysRepo.DayRow;
-  lines: linesRepo.LineRow[];
-  photos: { id: string; createdAt: number }[];
-  totals: Totals;
-  compare: CompareItem[];
+export async function requireDayRow(ctx: Ctx, date: string): Promise<ledgerRepo.DayRow> {
+  const d = await ledgerRepo.getDayByDate(ctx.db, ctx.user.branchId, date);
+  if (!d) throw notFound();
+  return d;
 }
 
-export async function requireDay(ctx: Ctx, dayId: string): Promise<daysRepo.DayRow> {
-  const day = await daysRepo.getDay(ctx.db, ctx.user.branchId, dayId);
-  if (!day) throw notFound();
-  return day;
-}
-
-export async function getDayView(ctx: Ctx, dayId: string): Promise<DayView> {
-  const day = await requireDay(ctx, dayId);
+export async function dayView(ctx: Ctx, date: string): Promise<Day> {
+  const d = await requireDayRow(ctx, date);
   const [lines, photos] = await Promise.all([
-    linesRepo.listDayLines(ctx.db, ctx.user.branchId, day.id),
-    photosRepo.listDayPhotos(ctx.db, ctx.user.branchId, day.id),
+    ledgerRepo.listLineRows(ctx.db, ctx.user.branchId, d.id),
+    ledgerRepo.listPhotoRows(ctx.db, ctx.user.branchId, d.id),
   ]);
-  const totals = computeTotals(lines);
-  return {
-    day, lines, totals,
-    photos: photos.map((p) => ({ id: p.id, createdAt: p.createdAt })),
-    compare: compareWithLedger(totals, ledgerOf(day)),
-  };
+  return dayToWire(d, lines, photos);
 }
 
-export async function createDay(ctx: Ctx, date: string): Promise<daysRepo.DayRow> {
-  if (!isValidDate(date)) throw new AppError('bad_request', 'invalid_date');
-  const existing = await daysRepo.getDayByDate(ctx.db, ctx.user.branchId, date);
-  if (existing) return existing;
-  const row: daysRepo.DayRow = {
-    id: uuidv7(ctx.now), branchId: ctx.user.branchId, date, goldPriceFils: null, note: '',
-    ledgerSalesFils: null, ledgerSalesCg: null, ledgerPurchasesFils: null, ledgerPurchasesCg: null,
-    ledgerExpensesFils: null, ledgerWagesFils: null, status: 'not_compared', version: 1,
+export const logFor = (ctx: Ctx, e: Omit<AuditEntry, 'branchId' | 'userId' | 'who'>): AuditEntry =>
+  ({ branchId: ctx.user.branchId, userId: ctx.user.id, who: ctx.user.name, ...e });
+
+const fils = (n: number | null): number | null => (n === null ? null : toFils(n));
+
+/** فتح يوم جديد (newDay في النموذج). */
+export async function createDay(ctx: Ctx, input: z.infer<typeof newDaySchema>): Promise<Day> {
+  if (!isValidDate(input.date)) throw new AppError('bad_request', 'date');
+  if (await ledgerRepo.getDayByDate(ctx.db, ctx.user.branchId, input.date)) throw new AppError('conflict', 'day_exists');
+  const row: ledgerRepo.DayRow = {
+    id: uuidv7(ctx.now), branchId: ctx.user.branchId, date: input.date, buyFils: toFils(input.buy), sellFils: fils(input.sell),
+    commFils: null, xLabel: '', xFils: null, status: 'open', note: '', ...ledgerCols({}), version: 1,
     createdBy: ctx.user.id, createdAt: ctx.now,
   };
-  const audit = { branchId: row.branchId, userId: ctx.user.id, entity: 'day', entityId: row.id, action: 'create', after: { date } };
-  await runBatch(ctx.db, [daysRepo.insertDayQuery(ctx.db, row), auditAfterChangeQuery(ctx.db, audit, ctx.now)]);
-  return row;
+  const detail = `سعر الشراء ${input.buy}${input.sell !== null ? `، سعر البيع ${input.sell}` : ''}`;
+  const log = logFor(ctx, { entity: 'day', entityId: row.id, action: 'create', kind: 'day', title: 'فتح اليوم', detail, dayDate: input.date, after: row });
+  await runBatch(ctx.db, [ledgerRepo.insertDayQuery(ctx.db, row), auditAfterChangeQuery(ctx.db, log, ctx.now)]);
+  return dayView(ctx, input.date);
 }
 
-async function saveDay(ctx: Ctx, change: { before: daysRepo.DayRow; after: daysRepo.DayRow; action: string }): Promise<void> {
-  const { before, after, action } = change;
-  const audit = { branchId: before.branchId, userId: ctx.user.id, entity: 'day', entityId: before.id, action, before, after };
-  await commitVersioned(ctx.db, [daysRepo.updateDayQuery(ctx.db, after), auditAfterChangeQuery(ctx.db, audit, ctx.now)]);
+/** تعديل السعر من رأس اليوم — لا يعيد فتح اليوم (savePrices). */
+export async function setPrices(ctx: Ctx, date: string, input: z.infer<typeof pricesSchema>): Promise<Day> {
+  const before = await requireDayRow(ctx, date);
+  const after = { ...before, buyFils: toFils(input.buy), sellFils: fils(input.sell), version: input.v };
+  const ch: string[] = [];
+  if (before.buyFils !== after.buyFils) ch.push(`سعر الشراء: ${pr(before.buyFils / 100)} ← ${pr(input.buy)}`);
+  if (before.sellFils !== after.sellFils) ch.push(`سعر البيع: ${pr(before.sellFils === null ? null : before.sellFils / 100)} ← ${pr(input.sell)}`);
+  if (!ch.length) return dayView(ctx, date);
+  const log = logFor(ctx, { entity: 'day', entityId: before.id, action: 'prices', kind: 'day', title: 'تعديل السعر', detail: ch.join('؛ '), dayDate: date, before, after });
+  await commitVersioned(ctx.db, [ledgerRepo.updateDayQuery(ctx.db, after), auditAfterChangeQuery(ctx.db, log, ctx.now)]);
+  return dayView(ctx, date);
 }
 
-/** تعديل الأسعار والملاحظة لا يعيد فتح اليوم. */
-export async function updateHeader(ctx: Ctx, dayId: string, input: z.infer<typeof updateDayHeaderSchema>): Promise<void> {
-  const before = await requireDay(ctx, dayId);
-  await saveDay(ctx, { before, after: { ...before, goldPriceFils: input.goldPriceFils, note: input.note, version: input.version }, action: 'update_header' });
+interface DayDataChange { title: string; kind: 'add' | 'edit'; detail: string; reopens: boolean }
+
+function dayDataChange(before: ledgerRepo.DayRow, after: ledgerRepo.DayRow): DayDataChange | null {
+  const show = (f: number | null): string => (f === null ? '—' : String(f / 100));
+  const commCh = before.commFils !== after.commFils;
+  const xCh = before.xFils !== after.xFils;
+  if (!commCh && !xCh && before.xLabel === after.xLabel) return null;
+  const ch: string[] = [];
+  const commNew = before.commFils === null && after.commFils !== null;
+  if (commCh) ch.push(commNew ? `العمولة: ${show(after.commFils)}` : `العمولة: ${show(before.commFils)} ← ${show(after.commFils)}`);
+  if (xCh || before.xLabel !== after.xLabel) ch.push(`البند الإضافي: ${before.xLabel} ${show(before.xFils)} ← ${after.xLabel} ${show(after.xFils)}`);
+  const xNew = before.xFils === null && after.xFils !== null;
+  const [kind, title] = commNew ? ['add', 'إضافة العمولة'] as const : commCh ? ['edit', 'تعديل العمولة'] as const
+    : xNew ? ['add', 'إضافة بند إضافي'] as const : ['edit', 'تعديل البند الإضافي'] as const;
+  return { kind, title, detail: ch.join('؛ '), reopens: commCh || xCh };
 }
 
-export async function compareDay(ctx: Ctx, dayId: string, input: z.infer<typeof compareSchema>): Promise<DayView> {
-  const view = await getDayView(ctx, dayId);
-  const items = compareWithLedger(view.totals, input.ledger);
-  const l = input.ledger;
-  const after: daysRepo.DayRow = {
-    ...view.day, version: input.version, status: statusAfterCompare(items, input.confirmLedgerError),
-    ledgerSalesFils: l.salesFils, ledgerSalesCg: l.salesCg, ledgerPurchasesFils: l.purchasesFils,
-    ledgerPurchasesCg: l.purchasesCg, ledgerExpensesFils: l.expensesFils, ledgerWagesFils: l.wagesFils,
-  };
-  await saveDay(ctx, { before: view.day, after, action: 'compare' });
-  return getDayView(ctx, dayId);
+/** العمولة والبند الإضافي (saveDayData). تعديل العمولة أو مبلغ البند يعيد فتح اليوم. */
+export async function setDayData(ctx: Ctx, date: string, input: z.infer<typeof dayDataSchema>): Promise<Day> {
+  const before = await requireDayRow(ctx, date);
+  const after: ledgerRepo.DayRow = { ...before, commFils: fils(input.comm), xLabel: input.xl, xFils: fils(input.x), version: input.v };
+  const change = dayDataChange(before, after);
+  if (!change) return dayView(ctx, date);
+  if (change.reopens && (after.status === 'ok' || after.status === 'lerr')) Object.assign(after, { status: 'open', note: '' });
+  const log = logFor(ctx, { entity: 'day', entityId: before.id, action: 'daydata', kind: change.kind, title: change.title, detail: change.detail, dayDate: date, before, after });
+  await commitVersioned(ctx.db, [ledgerRepo.updateDayQuery(ctx.db, after), auditAfterChangeQuery(ctx.db, log, ctx.now)]);
+  return dayView(ctx, date);
+}
+
+/** المقارنة بالدفتر (saveCompare). الخادم يعيد الحساب بنفسه ولا يثق بالنتيجة القادمة من الجهاز. */
+export async function compareDay(ctx: Ctx, date: string, input: z.infer<typeof compareSchema>): Promise<Day> {
+  const view = await dayView(ctx, date);
+  const before = await requireDayRow(ctx, date);
+  const ledger = Object.fromEntries(Object.entries(input.ledger).filter(([, v]) => hasVal(v)));
+  const r = compareLedger(T(view), ledger);
+  if (!r.filled) throw new AppError('bad_request', 'empty_ledger');
+  if (input.lerr !== r.bad.length > 0) throw new AppError('bad_request', input.lerr ? 'no_mismatch' : 'mismatch');
+  const note = input.lerr ? lerrNote(r.bad) : '';
+  const after: ledgerRepo.DayRow = { ...before, ...ledgerCols(ledger), status: input.lerr ? 'lerr' : 'ok', note, version: input.v };
+  const title = input.lerr ? 'حُفظ مع خطأ في جمع الدفتر' : 'قورن بالدفتر: مطابق';
+  const detail = input.lerr ? note : `${r.filled} من ${CMP_ROWS.length} مجاميع`;
+  const log = logFor(ctx, { entity: 'day', entityId: before.id, action: 'compare', kind: 'check', title, detail, dayDate: date, before, after });
+  await commitVersioned(ctx.db, [ledgerRepo.updateDayQuery(ctx.db, after), auditAfterChangeQuery(ctx.db, log, ctx.now)]);
+  return dayView(ctx, date);
 }

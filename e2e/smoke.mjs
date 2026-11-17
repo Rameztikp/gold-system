@@ -1,129 +1,157 @@
-// تجربة كاملة في المتصفح: إعداد، مفتاح مرور (افتراضي)، مستخدم، يوم، سطور، مقارنة، دخول.
+// تجربة كاملة في المتصفح بشكل النموذج: إعداد، بصمة (افتراضية)، يوم 2 أكتوبر كامل من الدفتر عبر النوافذ،
+// المقارنة بالدفتر، الإلغاء والإرجاع، التكرار، البحث، التقارير، اللوحة، الجوال، الخروج والدخول.
 // التشغيل: node e2e/smoke.mjs http://localhost:8787 <مجلد الصور>
 import { chromium } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 const BASE = process.argv[2] ?? 'http://localhost:8787';
 const SHOTS = process.argv[3] ?? '/tmp/shots';
+const DAY = JSON.parse(readFileSync(new URL('../prototype/data.json', import.meta.url), 'utf8')).find((d) => d.id === '2026-10-02');
 const browser = await chromium.launch({ executablePath: process.env.CHROME ?? '/usr/bin/google-chrome' });
-const ctx = await browser.newContext({ locale: 'ar' });
+const ctx = await browser.newContext({ locale: 'ar', viewport: { width: 1360, height: 900 } });
 const page = await ctx.newPage();
 const errors = [];
-page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('401')) errors.push(m.text()); });
-page.on('pageerror', (e) => errors.push(String(e)));
+page.on('console', (m) => { if (m.type() === 'error' && !/40[19]/.test(m.text())) errors.push(m.text()); });
+page.on('pageerror', (e) => { console.log('PAGEERROR', String(e)); errors.push(String(e)); });
 const cdp = await ctx.newCDPSession(page);
 await cdp.send('WebAuthn.enable');
 await cdp.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true } });
 const shot = (n) => page.screenshot({ path: `${SHOTS}/${n}.png`, fullPage: true });
 const step = (s) => console.log('✓', s);
+const M = '#modal-root';
+const fill = async (name, v) => { if (v !== null && v !== undefined && v !== '') await page.fill(`${M} [name="${name}"]`, String(v)); };
+const saveLine = async () => { await page.click(`${M} button[type=submit]`); await page.waitForFunction(() => !document.querySelector('#modal-root button[type=submit]')?.disabled); };
+
+async function setKarats(k) {
+  await page.waitForSelector(`${M} .sug`, { state: 'hidden' }).catch(() => {});
+  const want = k ? k.split(' + ') : [];
+  for (const c of ['24', '22', '21', '18']) {
+    const b = page.locator(`${M} [data-chips="k"] .chip[data-v="${c}"]`);
+    if ((await b.getAttribute('aria-pressed') === 'true') !== want.includes(c)) await b.click();
+  }
+}
 
 await page.goto(BASE);
 await page.fill('[name=token]', 'local-setup-token-123456');
-await page.fill('[name=ownerName]', 'عبدالله');
-await page.fill('[name=username]', 'owner');
-await page.click('button.primary');
-await page.click('[data-add]');
-await page.waitForSelector('[data-adduser]');
-step('الإعداد ومفتاح المرور');
-await page.click('[data-adduser]');
-await page.fill('.modal [name=name]', 'مدخل البيانات');
-await page.fill('.modal [name=username]', 'entry1');
-await page.fill('.modal [name=password]', 'password-123456');
-await page.click('.modal button.primary');
-await page.waitForSelector('text=@entry1');
+await page.fill('[name=ownerName]', 'يوسف العمراني');
+await page.fill('[name=username]', 'yousef12');
+await page.click('form[data-form=setup] button[type=submit]');
+await page.click('[data-act=addkey]');
+await page.waitForSelector('.shell');
+step('الإعداد ومفتاح المرور ثم الدخول');
+
+await page.click('.side [data-r=users]');
+await page.click('[data-act=adduser]');
+await fill('name', 'مدخل البيانات'); await fill('username', 'clerk1'); await fill('password', 'password-123456');
+await page.click(`${M} button[type=submit]`);
+await page.waitForSelector('text=clerk1');
 await shot('01-users');
 step('إضافة مدخل بيانات');
 
-await page.goto(`${BASE}/#/days`);
-await page.click('[data-new]');
-await page.fill('.modal [name=date]', '2026-10-01');
-await page.click('.modal button.primary');
-await page.waitForSelector('[data-add=sale]');
-for (const [d, g, m, a, w] of [['خاتم ذهب', '6.25', '', '1500', '50'], ['سلسلة', '12', '5', '3200.50', '80']]) {
-  await page.click('[data-add=sale]');
-  await page.fill('.modal [name=description]', d);
-  await page.fill('.modal [name=grams]', g);
-  if (m) await page.fill('.modal [name=milli]', m);
-  await page.fill('.modal [name=amount]', a);
-  await page.fill('.modal [name=wages]', w);
-  await page.click('.modal [data-save]');
-  await page.waitForSelector('.modal', { state: 'detached' });
+await page.click('.side [data-r=days]');
+await page.click('[data-act=newday]');
+await page.fill(`${M} [name=date]`, DAY.id);
+await fill('buy', DAY.gold);
+await page.click(`${M} button[type=submit]`);
+await page.waitForSelector(`${M} form[data-sec=sales]`);
+for (const l of DAY.sales) {
+  await fill('p', l.p); await fill('g', l.g); await fill('m', l.m); await fill('d', l.d); await page.fill(`${M} [name=mk]`, l.mk === null ? '' : String(l.mk));
+  await setKarats(l.k || '');
+  await saveLine();
+  if (await page.locator(`${M} [data-out=dup]:not([hidden])`).count()) { await page.click(`${M} [data-act=dupok]`); await page.waitForTimeout(300); }
 }
-await page.waitForSelector('tbody tr:nth-child(2)');
-const foot = await page.textContent('tfoot');
-if (!foot.includes('4,700.50') || !foot.includes('18.75')) throw new Error('مجاميع خاطئة: ' + foot);
-await shot('02-day-sales');
-step('إدخال سطرين: المجموع 4,700.50 والوزن 18.75');
+await page.click(`${M} .dlg-h [data-act=close]`);
+step(`إدخال ${DAY.sales.length} سطر بيع عبر النافذة`);
 
-await page.click('[data-add=sale]');
-await page.fill('.modal [name=description]', 'سلسلة');
-await page.fill('.modal [name=grams]', '12');
-await page.fill('.modal [name=milli]', '5');
-await page.fill('.modal [name=amount]', '3200.50');
-await page.fill('.modal [name=wages]', '80');
-await page.click('.modal [data-save]');
-await page.waitForSelector('text=مطابق للسطر الذي قبله');
-await page.click('[data-no]');
-await page.click('[data-close]');
+await page.click('[data-act=step][data-s=purch]');
+await page.click('[data-act="add-purch"]');
+for (const l of DAY.purch) { await fill('a', l.a); await fill('g', l.g); await fill('m', l.m); await fill('d', l.d); await saveLine(); }
+await page.click(`${M} .dlg-h [data-act=close]`);
+await page.click('[data-act=step][data-s=exp]');
+await page.click('[data-act="add-exp"]');
+for (const l of [...DAY.exp, ...DAY.wd.map((w) => ({ d: w.n === 'محمد' ? 'مصاريف محمد' : w.n, c: 'للموظفين', a: w.a, emp: w.n }))]) {
+  await fill('a', l.a); await fill('d', l.d);
+  await page.click(`${M} [data-chips=c] .chip[data-v="${l.c}"]`);
+  if (l.emp) await fill('nn', l.emp);
+  await saveLine();
+}
+await page.click(`${M} .dlg-h [data-act=close]`);
+step('المشتريات والمصروفات');
+
+await page.click('.dh-end [data-act=daydata]');
+await fill('comm', DAY.comm);
+await page.click(`${M} button[type=submit]`);
+await page.waitForSelector(`${M} form`, { state: 'detached' });
+await page.click('[data-act=step][data-s=check]');
+for (const [k, v] of Object.entries(DAY.ledger)) await page.fill(`form[data-form=compare] [name=${k}]`, String(v));
+await page.waitForSelector('[data-act=cmpok]');
+await shot('02-compare');
+await page.click('[data-act=cmpok]');
+await page.waitForSelector('.dayhead .pill.ok');
+step('المقارنة بالدفتر: كل البنود الستة مطابقة → مطابق للدفتر');
+
+await page.click('[data-act=step][data-s=sales]');
+await page.click('.l-sales .ln >> nth=0');
+await page.click(`${M} [data-act=xask]`);
+await page.fill(`${M} [name=xr]`, 'تجربة الإلغاء');
+await page.click(`${M} [data-act=xdo]`);
+await page.waitForSelector('.l-sales .ln.is-x');
+if (!(await page.locator('.dayhead .pill.wait').count())) throw new Error('الإلغاء ما أعاد فتح اليوم');
+await page.click('.l-sales .ln.is-x');
+await page.click(`${M} [data-act=unx]`);
+await page.waitForSelector('.l-sales .ln.is-x', { state: 'detached' });
+step('إلغاء سطر بسبب ثم إرجاعه (واليوم رجع «لم يُقارن»)');
+
+await page.click('[data-act="add-sales"]');
+const last = DAY.sales[DAY.sales.length - 1];
+await fill('p', last.p); await fill('g', last.g); await fill('m', last.m); await fill('d', last.d); await fill('mk', last.mk); await setKarats(last.k || '');
+await page.click(`${M} button[type=submit]`);
+await page.waitForSelector(`${M} [data-out=dup]:not([hidden])`);
+await page.click(`${M} [data-act=dupno]`);
+await page.click(`${M} .dlg-h [data-act=close]`);
 step('سؤال السطر المكرر');
 
-await page.click('[data-step="3"]');
-await page.fill('[name=l_salesFils]', '4700.50');
-await page.fill('[name=l_salesCg]', '18.75');
-for (const k of ['purchasesFils', 'purchasesCg', 'expensesFils']) await page.fill(`[name=l_${k}]`, '0');
-await page.fill('[name=l_wagesFils]', '130');
-await page.click('[data-compare] button.primary');
-await page.waitForSelector('.day-title .badge.matched');
-await shot('03-compare');
-step('المقارنة: مطابق للدفتر');
-
-await page.goto(`${BASE}/#/search`);
-await page.fill('[name=q]', 'سلس');
-await page.waitForSelector('text=سلسلة');
+await page.click('.side [data-r=search]');
+await page.fill('#q', 'ضيافة');
+await page.waitForSelector('.sr');
 step('البحث');
-await page.goto(`${BASE}/#/reports`);
-await page.fill('[name=from]', '2026-10-01');
-await page.fill('[name=to]', '2026-10-31');
-await page.click('[data-range] button.primary');
-await page.waitForSelector('.stat-value:has-text("4,700.50")');
-await shot('04-reports');
-step('التقارير');
-
-await page.goto(`${BASE}/#/`);
-await page.click('[data-period=month]');
-await page.click('[data-shift="-1"]');
-await page.waitForSelector('.chart');
-await shot('05-dashboard-dark');
-await page.click('.top-actions [data-theme]');
-await shot('06-dashboard-light');
-await page.click('.top-actions [data-theme]');
-step('اللوحة والثيمين');
+await page.click('.side [data-r=reports]');
+await page.waitForSelector('.paper');
+await shot('03-reports');
+await page.click('.side [data-r=dash]');
+await page.waitForSelector('.tiles');
+const sales = await page.textContent('#tile-sales .tv');
+if (!sales.includes('87,260')) throw new Error('مبيعات اللوحة: ' + sales);
+await shot('04-dash-dark');
+await page.click('.side-foot [data-act=theme]');
+await shot('05-dash-light');
+await page.click('.side-foot [data-act=theme]');
+step('اللوحة (مبيعات 87,260.00) والثيمان');
 
 await page.setViewportSize({ width: 390, height: 844 });
-await page.waitForSelector('.bottombar');
-await shot('07-mobile-dashboard');
-await page.goto(`${BASE}/#/days`);
-await page.fill('[name=month]', '2026-10');
-await page.dispatchEvent('[name=month]', 'change');
-await page.click('.day-row');
-await page.click('[data-step="0"]');
-await page.click('[data-add=sale]');
-await shot('08-mobile-line-sheet');
-await page.click('[data-close]');
+await page.waitForSelector('.tabbar');
+await shot('06-mobile-dash');
+await page.click('.tabbar [data-r=entry]');
+await page.click('[data-act=step][data-s=sales]');
+await page.click('[data-act="add-sales"]');
+await shot('07-mobile-line');
+await page.click(`${M} .dlg-h [data-act=close]`);
+await page.setViewportSize({ width: 1360, height: 900 });
 step('الجوال: شريط سفلي ونافذة من الأسفل');
 
-await page.click('.top-actions [data-logout]');
-await page.waitForSelector('[data-passkey]');
-await page.click('[data-passkey]');
-await page.waitForSelector('.bottombar');
-step('الخروج ثم الدخول بمفتاح المرور');
+await page.click('.side [data-act=logout]');
+await page.waitForSelector('[data-act=passkey]');
+await page.click('[data-act=passkey]');
+await page.waitForSelector('.shell');
+step('الخروج ثم الدخول بالبصمة');
 
-await page.click('.top-actions [data-logout]');
-await page.waitForSelector('[data-passkey]');
-await page.fill('[name=username]', 'entry1');
-await page.fill('[name=password]', 'password-123456');
-await page.click('[data-form=password] button');
-await page.waitForSelector('.bottombar');
-if (await page.$('a[href="#/admin"]')) throw new Error('مدخل البيانات يرى الإدارة');
+await page.click('.side [data-act=logout]');
+await page.click('[data-act=pick][data-v=clerk]');
+await page.fill('[name=user]', 'clerk1');
+await page.fill('[name=pw]', 'password-123456');
+await page.click('form[data-form=login] button[type=submit]');
+await page.waitForSelector('.shell');
+if (await page.locator('.side [data-r=users]').count()) throw new Error('مدخل البيانات يرى الإدارة');
 step('مدخل البيانات بدون «الإدارة»');
 
 await browser.close();

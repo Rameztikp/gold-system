@@ -9,7 +9,7 @@ import type { Db } from '../db/client';
 import { createSession, logSecurity, type RequestMeta } from './sessions';
 
 /** الإعدادات الافتراضية لفرع الشارقة — قابلة للتعديل من «الإعدادات». */
-const DEFAULT_BRANCH = { currency: 'AED', countryCode: '971', timezone: 'Asia/Dubai', weekStart: 6 };
+const DEFAULT_BRANCH = { currency: 'AED', countryCode: '971', timezone: 'Asia/Dubai', weekStart: 6, catsJson: null, namesJson: null, wa: null };
 
 export interface SetupInput { token: string; ownerName: string; username: string; branchName: string }
 

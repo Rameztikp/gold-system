@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 
 /** الجداول التي تُنسخ كل ليلة (بدون الجلسات والتحديات المؤقتة). */
-const TABLES = ['branches', 'users', 'passkeys', 'recovery_codes', 'days', 'lines', 'photos', 'audit_log', 'security_log'] as const;
+const TABLES = ['branches', 'users', 'passkeys', 'recovery_codes', 'ledger_days', 'ledger_lines', 'day_photos', 'audit_log', 'security_log'] as const;
 
 export async function exportAll(db: Db): Promise<Record<string, unknown[]>> {
   const out: Record<string, unknown[]> = {};

@@ -1,0 +1,30 @@
+import '@fontsource/ibm-plex-sans-arabic/arabic-300.css';
+import '@fontsource/ibm-plex-sans-arabic/arabic-400.css';
+import '@fontsource/ibm-plex-sans-arabic/arabic-500.css';
+import '@fontsource/ibm-plex-sans-arabic/arabic-600.css';
+import '@fontsource/ibm-plex-sans-arabic/arabic-700.css';
+import '@fontsource/ibm-plex-sans/latin-400.css';
+import '@fontsource/ibm-plex-sans/latin-500.css';
+import '@fontsource/ibm-plex-sans/latin-600.css';
+import '@fontsource/ibm-plex-sans/latin-700.css';
+import '@fontsource/noto-kufi-arabic/arabic-500.css';
+import '@fontsource/noto-kufi-arabic/arabic-600.css';
+import '@fontsource/noto-kufi-arabic/arabic-700.css';
+import '../app.css';
+import './print.css';
+import { loadTheme } from './ui';
+import { drawCharts } from './views/chart';
+import { wireViewer } from './views/viewer';
+import { wireEvents } from './events';
+import { boot } from './auth';
+
+document.documentElement.lang = 'ar';
+document.documentElement.dir = 'rtl';
+loadTheme();
+wireEvents();
+wireViewer();
+let rz = 0;
+window.addEventListener('resize', () => { clearTimeout(rz); rz = window.setTimeout(drawCharts, 150); });
+void boot();
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) void navigator.serviceWorker.register('/sw.js');
