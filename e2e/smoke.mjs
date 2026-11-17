@@ -46,7 +46,8 @@ step('الإعداد ومفتاح المرور ثم الدخول');
 await page.click('.side [data-r=users]');
 await page.click('[data-act=adduser]');
 await page.waitForTimeout(150);
-await fill('name', 'مدخل البيانات'); await fill('username', 'clerk1'); await fill('password', 'password-123456');
+await page.type(`${M} [name=name]`, 'مدخل2 البيانات!'); await page.type(`${M} [name=username]`, 'Clerk 1#');
+if (await page.inputValue(`${M} [name=name]`) !== 'مدخل البيانات' || await page.inputValue(`${M} [name=username]`) !== 'clerk1') throw new Error('خانة الاسم قبلت أرقام'); await fill('password', 'password-123456');
 await page.click(`${M} button[type=submit]`);
 await page.waitForSelector('text=clerk1');
 await page.click('[data-act=codes]');
@@ -57,13 +58,15 @@ const copied = await page.evaluate(() => navigator.clipboard.readText());
 if (copied.split('\n').length !== 10) throw new Error('نسخ الرموز: ' + copied);
 await page.click(`${M} .dlg-h [data-act=close]`);
 await shot('01-users');
-step('إضافة مدخل بيانات، ورموز الاسترجاع مع زر النسخ (10 رموز)');
+step('الخانات: الاسم حروف بس والسعر أرقام بس'); step('إضافة مدخل بيانات، ورموز الاسترجاع مع زر النسخ (10 رموز)');
 
 await page.click('.side [data-r=days]');
 await page.click('[data-act=newday]');
 await page.waitForTimeout(150);
 await page.fill(`${M} [name=date]`, DAY.id);
-await fill('buy', DAY.gold);
+await page.type(`${M} [name=buy]`, 'ab4x2.5.0');
+if (await page.inputValue(`${M} [name=buy]`) !== '42.50') throw new Error('خانة السعر قبلت حروف: ' + await page.inputValue(`${M} [name=buy]`));
+await page.fill(`${M} [name=buy]`, String(DAY.gold));
 await page.click(`${M} button[type=submit]`);
 await page.waitForSelector(`${M} form[data-sec=sales]`);
 for (const l of DAY.sales) {

@@ -1,5 +1,5 @@
 /* الحفظ: نفس شروط النموذج (readLine, saveLine, savePrices, saveDayData, saveCompare, newDay)، والخادم يتحقق مرة ثانية. */
-import { parseNum, sameLine, describe, diffText, SEC_ONE, uuidv7, type AnyLine, type Day, type Sec, type LedgerVals } from '../../../shared/domain';
+import { hasLetter, parseNum, sameLine, describe, diffText, SEC_ONE, uuidv7, type AnyLine, type Day, type Sec, type LedgerVals } from '../../../shared/domain';
 import { $$, esc, num, money, dayLong, dayShort, latin, NO_EMP } from '../util';
 import { S, U, applyDay } from '../state';
 import { api, dayCall, errorText, ApiError } from '../api';
@@ -23,6 +23,7 @@ function readWeighed(f: HTMLFormElement, sec: 'sales' | 'purch'): Read {
   let g = v('g'); let m = v('m');
   const gm = g.match(/^(\d*)[.٫](\d{1,2})$/); if (gm && !m) { g = gm[1] ?? ''; m = gm[2] ?? ''; }
   if (!d) return [null, 'اكتب البيان كما في الدفتر.', 'd'];
+  if (!hasLetter(d)) return [null, 'البيان لازم فيه كلام، مو أرقام بس. مثل: خاتم 21.', 'd'];
   if (g && !/^\d+$/.test(g)) return [null, 'الجرام رقم صحيح بلا فواصل، مثل 7.', 'g'];
   if (m && !/^\d{1,2}$/.test(m)) return [null, 'الملي رقم أو رقمان كما في الدفتر: 3 تعني 0.30، و03 تعني 0.03.', 'm'];
   if (sec === 'purch' && !g && !m) return [null, 'اكتب الوزن: كل شراء له وزن في الدفتر.', 'g'];
@@ -41,6 +42,7 @@ export function readLine(f: HTMLFormElement, sec: Sec): Read {
   if (sec !== 'exp') return readWeighed(f, sec);
   const d = val(f, 'd').trim(); const a = parseNum(val(f, 'a')); const nn = val(f, 'nn').trim();
   if (!d) return [null, 'اكتب البيان.', 'd'];
+  if (!hasLetter(d)) return [null, 'البيان لازم فيه كلام، مو أرقام بس.', 'd'];
   if (!(a > 0)) return [null, 'اكتب المبلغ.', 'a'];
   const emp = nn || (val(f, 'emp') === NO_EMP ? '' : val(f, 'emp'));
   return [{ d, c: val(f, 'c') || 'أخرى', emp, a }];

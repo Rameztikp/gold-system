@@ -681,7 +681,7 @@ mark { background: var(--sel); color: var(--accent-text); border-radius: 3px; pa
   .rt.det td.r { white-space: nowrap; }
   /* dialogs and admin */
   .two, .three { grid-template-columns: 1fr; }
-  .dialog { top: auto; bottom: 0; left: 0; right: 0; transform: none; width: 100%; max-height: 92%; border-radius: 20px 20px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); }
+  .dialog, .dialog.wide { top: auto; bottom: 0; left: 0; right: 0; transform: none; width: 100%; max-height: 92%; border-radius: 20px 20px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); }
   .agrid { grid-template-columns: 1fr; }
   .agrid .wide { grid-column: auto; }
   .toast { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
@@ -712,6 +712,7 @@ mark { background: var(--sel); color: var(--accent-text); border-radius: 3px; pa
   .dc-acts > * { flex: 1 1 auto; }
   .ph-grid { grid-template-columns: 1fr 1fr; }
   .ph-add { min-height: 160px; }
+  .ph-grid > .ph-add:only-child { grid-column: 1 / -1; }
 }
 @container app (max-width: 430px) {
   .who { grid-template-columns: 1fr; }

@@ -6,3 +6,4 @@ export * from './arabic';
 export * from './period';
 export * from './uuid';
 export * from './seed';
+export * from './fields';

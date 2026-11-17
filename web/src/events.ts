@@ -19,6 +19,7 @@ import { searchResults } from './views/search';
 import { resetAdminCache } from './views/admin';
 import { L } from './views/login';
 import * as auth from './auth';
+import { filterField } from './fields';
 import { unlockWithKey, unlockWithPassword } from './lock';
 
 type Act = (el: HTMLElement) => void;
@@ -198,6 +199,7 @@ function addToList(f: LiveForm, o: { field: string; path: string; ok: string }):
 
 function onInput(e: Event): void {
   const t = e.target as HTMLInputElement; const f = t.form as LiveForm | null;
+  if (t instanceof HTMLInputElement && !(e as InputEvent).isComposing) filterField(t);
   if (t.id === 'q') { U.q = t.value; const sr = $('#sr', screen); if (sr) sr.innerHTML = searchResults(); return; }
   if (f && f.dataset.form === 'line') {
     if (t.name === 'g') splitDot(f);

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { NAME_RE, hasLetter } from './domain/fields';
 
 /** مخططات الطلبات — نفس شروط readLine/savePrices/saveDayData في النموذج، ويتحقق منها الخادم. */
 
@@ -12,14 +13,16 @@ export const uuidSchema = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3
 
 export const KARATS = ['24', '22', '21', '18'] as const;
 const karats = z.string().max(20).refine((s) => s === '' || s.split(' + ').every((k) => (KARATS as readonly string[]).includes(k)));
-const desc = z.string().trim().min(1).max(200);
+const desc = z.string().trim().min(1).max(200).refine(hasLetter, 'البيان لازم فيه كلام، مو أرقام بس');
+/** اسم شخص أو نوع أو فرع: حروف بس. */
+const person = (min: number) => z.string().trim().min(min).max(60).regex(NAME_RE, 'الاسم حروف بس، بدون أرقام');
 const grams = int.min(0).max(100_000).nullable();
 const milli = z.string().regex(/^\d{0,2}$/);
 
 export const saleSchema = z.object({ d: desc, g: grams, m: milli, k: karats, mk: amount.nullable(), p: positive });
 export const purchSchema = z.object({ d: desc, g: grams, m: milli, a: positive, t: z.enum(['كسر', 'جديد']) })
   .refine((l) => l.g !== null || l.m !== '', { message: 'كل شراء له وزن', path: ['g'] });
-export const expSchema = z.object({ d: desc, c: z.string().trim().min(1).max(60), emp: z.string().trim().max(60), a: positive });
+export const expSchema = z.object({ d: desc, c: person(1), emp: z.union([z.literal(''), person(1)]), a: positive });
 
 export const lineFields = { sales: saleSchema, purch: purchSchema, exp: expSchema } as const;
 export const secSchema = z.enum(['sales', 'purch', 'exp']);
@@ -47,13 +50,13 @@ export const recoveryLoginSchema = z.object({ username: z.string().trim().min(1)
 
 export const setupSchema = z.object({
   token: z.string().min(16),
-  ownerName: z.string().trim().min(2).max(60),
+  ownerName: person(2),
   username: z.string().trim().regex(/^[a-z0-9._-]{3,30}$/),
-  branchName: z.string().trim().min(2).max(60),
+  branchName: person(2),
 });
 
 export const createUserSchema = z.object({
-  name: z.string().trim().min(2).max(60),
+  name: person(2),
   username: z.string().trim().regex(/^[a-z0-9._-]{3,30}$/),
   password: z.string().min(10).max(200),
 });
@@ -62,7 +65,7 @@ export const resetPasswordSchema = z.object({ password: z.string().min(10).max(2
 
 export const weekStartSchema = z.object({ weekStart: z.union([z.literal(6), z.literal(0), z.literal(1)]) });
 export const waSchema = z.object({ wa: z.string().regex(/^\d{0,15}$/) });
-export const nameSchema = z.object({ name: z.string().trim().min(1).max(60) });
+export const nameSchema = z.object({ name: person(1) });
 export const logQuerySchema = z.object({
   kind: z.enum(['all', 'add', 'edit', 'cancel', 'day', 'check']).default('all'),
   before: z.coerce.number().int().positive().optional(),
