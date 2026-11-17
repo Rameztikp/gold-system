@@ -142,6 +142,15 @@ await page.click('.side-foot [data-act=theme]');
 await shot('05-dash-light');
 await page.click('.side-foot [data-act=theme]');
 step('اللوحة (مبيعات 87,260.00) والثيمان');
+if (!(await page.locator('.dash-head [data-k=day][aria-selected=true]').count())) throw new Error('اللوحة ما فتحت على اليوم');
+await page.click('.dash-head [data-k=month]');
+const cover = await page.textContent('.dash-head .cover');
+if (!/من يوم واحد مُدخلة بس، من أصل 31/.test(cover.replace(/\s+/g, ' '))) throw new Error('سطر الأيام الناقصة: ' + cover);
+await page.reload(); await page.waitForSelector('.tiles');
+if (!(await page.locator('.dash-head [data-k=month][aria-selected=true]').count())) throw new Error('ما تذكّر اختيار الشهر');
+await shot('04b-dash-cover');
+await page.click('.dash-head [data-k=day]');
+step('اللوحة تفتح على آخر يوم، وتتذكر الاختيار، وتوضح الأيام الناقصة');
 
 await page.setViewportSize({ width: 390, height: 844 });
 await page.waitForSelector('.tabbar');

@@ -2,7 +2,7 @@
 import { T, type Day } from '../../../shared/domain';
 import { esc, num, money, g2, strip, piecesW, dayLong, dayShort, latin } from '../util';
 import { ico } from '../icons';
-import { S, APP_NAME, currencyWord, agg, idsIn, periodRange, U } from '../state';
+import { S, APP_NAME, currencyWord, agg, idsIn, periodRange, coverage, U } from '../state';
 import { dlgHead } from '../ui';
 
 /** الرقم يُحفظ أرقامًا مع رمز الدولة: 0501234567 ← 971501234567. */
@@ -42,7 +42,7 @@ export function reportText(): string {
     `إجمالي الأجور: ${money(A.tot)} ${cw}`,
     `المشتريات: ${money(A.purch)} ${cw} (${g2(A.pw)} جم)`,
     `المصروفات: ${money(A.exp)} ${cw}`,
-    `أيام مُدخلة: ${A.ids.length}`,
+    `أيام مُدخلة: ${A.ids.length}${U.rperiod!.kind === 'day' ? '' : ` من ${coverage(R, A.ids.length).of}`}`,
     '',
     sentAt(),
   ].join('\n');

@@ -776,3 +776,6 @@ mark { background: var(--sel); color: var(--accent-text); border-radius: 3px; pa
   .rt tr.grp { break-after: avoid; }
 }
 
+
+/* المجموع من أيام قليلة: تنبيه هادي فوق اللوحة */
+.cover { color: var(--warn); }

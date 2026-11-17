@@ -1,6 +1,6 @@
 /* اختيار الفترة (اللوحة والتقارير والبحث). */
 import { D, ID, add, monthStart } from '../util';
-import { S, U, dayIds, lastDay, type Period, type Range } from '../state';
+import { S, U, dayIds, lastDay, saveKind, type Period, type Range } from '../state';
 
 export type PKey = 'period' | 'rperiod' | 'qperiod';
 export const pkey = (p: string | undefined): PKey => (p === 'r' ? 'rperiod' : p === 'q' ? 'qperiod' : 'period');
@@ -20,6 +20,7 @@ export function periodNav(P: Period, R: Range, p: string): string {
 /** تغيير نوع الفترة (pkind). */
 export function setKind(key: PKey, k: Period['kind']): void {
   const P = U[key] ?? { kind: 'month', anchor: lastDay() };
+  if (key !== 'qperiod') saveKind(key, k);
   if (k === 'range') U[key] = { kind: 'range', anchor: P.anchor, from: monthStart(P.anchor), to: P.anchor > lastDay() ? lastDay() : P.anchor };
   else U[key] = { kind: k, anchor: k === 'day' ? (S.days[P.anchor] ? P.anchor : (dayIds().filter((x) => x <= P.anchor).slice(-1)[0] ?? lastDay())) : P.anchor };
 }

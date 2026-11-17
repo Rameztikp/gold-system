@@ -116,3 +116,24 @@ export function missingDays(R: { from: string; to: string }): string[] {
   for (let d = R.from; d <= end; d = add(d, 1)) if (d >= first && !have.has(d)) out.push(d);
   return out;
 }
+
+/** كم يوم مُدخل من أيام الفترة (لين اليوم إذا الفترة ما خلصت). الأيام الناقصة ما تنحسب صفر. */
+export function coverage(R: { from: string; to: string }, n: number): { have: number; of: number; full: boolean } {
+  const t = today(); const end = R.to < t ? R.to : t;
+  const of = end < R.from ? 0 : spanDays(R.from, end);
+  return { have: n, of, full: n >= of };
+}
+
+/** آخر نوع فترة اختاره المستخدم على هذا الجهاز (اللوحة تبدأ بآخر يوم أول مرة). */
+const PKIND_KEY = { period: 'gold.pkind.dash', rperiod: 'gold.pkind.reports' } as const;
+type Kind = 'day' | 'week' | 'month';
+export function savedKind(key: 'period' | 'rperiod', def: Kind): Kind {
+  try { const v = localStorage.getItem(PKIND_KEY[key]); return v === 'day' || v === 'week' || v === 'month' ? v : def; } catch { return def; }
+}
+export function saveKind(key: 'period' | 'rperiod', k: string): void {
+  if (k !== 'day' && k !== 'week' && k !== 'month') return;
+  try { localStorage.setItem(PKIND_KEY[key], k); } catch { /* المتصفح ما يسمح */ }
+}
+
+/** أول فترة عند فتح الصفحة: آخر يوم مُدخل، أو أسبوعه أو شهره حسب اختياره السابق. */
+export const startPeriod = (key: 'period' | 'rperiod', def: Kind): Period => ({ kind: savedKind(key, def), anchor: lastDay() });

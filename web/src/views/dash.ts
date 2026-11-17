@@ -1,7 +1,7 @@
 /* اللوحة: أربعة أرقام ولوحة تفاصيل واحدة (viewDash, attnCard, dayBar, tilesRow, panel). */
 import { esc, num, big, money, int, pr, g2, sum, dayMid, dayShort, dayLong, daysW, linesW, piecesW, ranges, C } from '../util';
 import { ico } from '../icons';
-import { S, U, agg, idsIn, lastDay, periodRange, missingDays, expByCat, expByEmp, extrasIn, type Agg, type Period, type Range } from '../state';
+import { S, U, agg, idsIn, coverage, startPeriod, today, periodRange, missingDays, expByCat, expByEmp, extrasIn, type Agg, type Period, type Range } from '../state';
 import { live } from '../../../shared/domain';
 import { photosBtn, statusPill, dlgHead } from '../ui';
 import { periodCtl } from './period';
@@ -12,16 +12,23 @@ let DASH: Dash | null = null;
 export const dash = (): Dash => DASH!;
 
 export function viewDash(): string {
-  if (!U.period || U.period.kind === 'range') U.period = { kind: 'month', anchor: lastDay() };
+  if (!U.period || U.period.kind === 'range') U.period = startPeriod('period', 'day');
   const P = U.period; const R = periodRange(P); const ids = idsIn(R.from, R.to); const A = agg(ids);
   const tab: Tab = (['sales', 'purch', 'exp', 'tot'] as const).find((t) => t === U.dtab) ?? 'sales';
   DASH = { P, R, ids, A, tab };
   const day = P.kind === 'day';
-  const sub = !ids.length ? 'اختر فترة فيها أيام مُدخلة.' : day ? '' : `أيام مُدخلة في هذه الفترة: ${num(ids.length)}.`;
+  const sub = !ids.length ? 'اختر فترة فيها أيام مُدخلة.' : day ? '' : coverNote(R, ids.length);
   const head = `<section class="dash-head"><div><h1 class="kufi h1">اللوحة</h1>${sub ? `<p class="sub">${sub}</p>` : ''}</div><div class="period">${periodCtl(P, R, { p: 'd', range: false })}</div></section>`;
   if (!ids.length) return head + `<section class="card empty-big"><p>لا توجد أيام مُدخلة في ${R.label}.</p><button type="button" class="btn-ghost btn-sm" data-act="plast" data-p="d">اذهب إلى آخر يوم مُدخل</button></section>`;
   // على الجوال الأرقام الأربعة أولًا (.dtop)، وعلى الكمبيوتر اليوم أو المشاكل فوقها
   return head + `<div class="dtop">${day ? dayBar(ids[0]!) : attnCard(P, R, ids)}${tilesRow(A, tab)}</div>` + panel(tab);
+}
+
+/** سطر واضح: المجموع من كم يوم مُدخل، من أصل كم يوم في الفترة. */
+export function coverNote(R: Range, n: number): string {
+  const c = coverage(R, n);
+  if (c.full) return `كل أيام الفترة مُدخلة (${daysW(c.have)}).`;
+  return `<span class="cover">المجموع من ${daysW(c.have)} مُدخلة بس، من أصل ${daysW(c.of)}${R.to > today() ? ' مضت' : ''}. الأيام الناقصة ما انحسبت.</span>`;
 }
 
 interface AttnRow { mark: string; cls: string; text: string; act?: string; go?: string }

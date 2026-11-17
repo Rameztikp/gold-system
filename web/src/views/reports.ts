@@ -2,7 +2,7 @@
 import { W, live, type AnyLine, type SaleLine, type PurchLine, type ExpLine } from '../../../shared/domain';
 import { esc, num, money, int, pr, g2, sum, dayMid, dayShort, linesW, ranges } from '../util';
 import { ico, diamond } from '../icons';
-import { S, U, agg, idsIn, lastDay, periodRange, missingDays, expByCat, expByEmp, APP_NAME, shopLine, type Agg } from '../state';
+import { S, U, agg, idsIn, coverage, startPeriod, periodRange, missingDays, expByCat, expByEmp, APP_NAME, shopLine, type Agg } from '../state';
 import { statusText } from '../ui';
 import { periodCtl } from './period';
 
@@ -70,7 +70,7 @@ function notesOf(ids: string[], R: { from: string; to: string }): string[] {
 }
 
 export function viewReports(): string {
-  if (!U.rperiod) U.rperiod = { kind: 'month', anchor: lastDay() };
+  if (!U.rperiod) U.rperiod = startPeriod('rperiod', 'month');
   const P = U.rperiod; const R = periodRange(P); const ids = idsIn(R.from, R.to); const A = agg(ids);
   const head = `<section class="dash-head"><div><h1 class="kufi h1">التقارير</h1><p class="sub">اختر الفترة: يوم، أو أسبوع، أو شهر، أو من تاريخ إلى تاريخ.</p></div><div class="period">${periodCtl(P, R, { p: 'r', range: true })}</div></section>`;
   if (!ids.length) return head + `<section class="card empty-big"><p>لا توجد أيام مُدخلة في ${R.label}.</p><button type="button" class="btn-ghost btn-sm" data-act="plast" data-p="r">اذهب إلى آخر شهر فيه بيانات</button></section>`;
@@ -83,7 +83,7 @@ export function viewReports(): string {
   <article class="paper" aria-label="التقرير">
     <header class="paper-head">
       <div class="pbrand">${diamond(32)}<div><b>${APP_NAME}</b><small>${esc(shopLine())}</small></div></div>
-      <div><h1 class="kufi">${rk === 'sum' ? `تقرير ${kind}` : RK[2]}</h1><div class="per">${R.label}</div><div class="per">أيام مُدخلة: ${num(ids.length)}</div></div>
+      <div><h1 class="kufi">${rk === 'sum' ? `تقرير ${kind}` : RK[2]}</h1><div class="per">${R.label}</div><div class="per">أيام مُدخلة: ${num(ids.length)}${P.kind === 'day' ? '' : ` من ${num(coverage(R, ids.length).of)}`}</div></div>
     </header>
     ${body}
     <h2>ملاحظات</h2>${notes.length ? `<ul class="paper-notes">${notes.map((n) => `<li>${n}</li>`).join('')}</ul>` : '<p class="sub">لا ملاحظات: كل الأيام مُدخلة ومطابقة للدفتر.</p>'}
