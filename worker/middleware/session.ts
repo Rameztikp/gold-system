@@ -2,8 +2,9 @@ import type { MiddlewareHandler, Context } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import type { AppEnv } from '../env';
 import { createDb } from '../db/client';
-import { resolveSession, SESSION_TTL_MS, type RequestMeta } from '../services/sessions';
+import { resolveSession, touch, assertUnlocked, COOKIE_TTL_MS, type RequestMeta, type Resolved } from '../services/sessions';
 import { AppError } from '../lib/errors';
+import { sha256 } from '../lib/crypto';
 import type { Ctx } from '../services/context';
 
 export const SESSION_COOKIE = '__Host-session';
@@ -14,12 +15,32 @@ export const withDb: MiddlewareHandler<AppEnv> = async (c, next) => {
 };
 
 /** الفرع يأتي من الجلسة فقط، لا من الطلب (حارس الفرع). */
-export const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
+async function resolved(c: Context<AppEnv>): Promise<Resolved> {
   const token = getCookie(c, SESSION_COOKIE);
-  const user = token ? await resolveSession(c.var.db, token, Date.now()) : null;
-  if (!user) throw new AppError('unauthorized');
-  c.set('user', user);
+  const r = token ? await resolveSession(c.var.db, token, Date.now()) : null;
+  if (!r) throw new AppError('unauthorized');
+  c.set('user', r.user);
+  return r;
+}
+
+/** جلسة صالحة وغير مقفولة؛ وكل طلب يحدّث آخر نشاط. */
+export const requireSession: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const r = await resolved(c);
+  assertUnlocked(r);
+  await touch(c.var.db, r, Date.now());
   await next();
+};
+
+/** جلسة صالحة حتى لو مقفولة — لفتح القفل نفسه. */
+export const requireSessionMaybeLocked: MiddlewareHandler<AppEnv> = async (c, next) => {
+  await resolved(c);
+  await next();
+};
+
+export const sessionHash = async (c: Context<AppEnv>): Promise<string> => {
+  const t = getCookie(c, SESSION_COOKIE);
+  if (!t) throw new AppError('unauthorized');
+  return sha256(t);
 };
 
 export const requireOwnerRole: MiddlewareHandler<AppEnv> = async (c, next) => {
@@ -29,7 +50,7 @@ export const requireOwnerRole: MiddlewareHandler<AppEnv> = async (c, next) => {
 
 export function setSessionCookie(c: Context<AppEnv>, token: string): void {
   setCookie(c, SESSION_COOKIE, token, {
-    path: '/', secure: true, httpOnly: true, sameSite: 'Strict', maxAge: Math.floor(SESSION_TTL_MS / 1000),
+    path: '/', secure: true, httpOnly: true, sameSite: 'Strict', maxAge: Math.floor(COOKIE_TTL_MS / 1000),
   });
 }
 

@@ -8,6 +8,7 @@ import { drawCharts } from './views/chart';
 import { syncViewer } from './views/viewer';
 import { liveUpdate } from './views/live';
 import { viewLogin } from './views/login';
+import { LOCK, viewLock } from './lock';
 
 export const app = document.getElementById('app')!;
 export const screen = document.getElementById('screen')!;
@@ -15,8 +16,9 @@ export const modalRoot = document.getElementById('modal-root')!;
 const toastRoot = document.getElementById('toast-root')!;
 
 export function render(): void {
-  const html = U.user ? shell(page()) : viewLogin();
+  const html = !U.user ? viewLogin() : LOCK.locked ? viewLock() : shell(page());
   // لوحة الصور تأخذ مكانها قبل قياس الرسوم
+  if (LOCK.locked) U.pv = null;
   syncViewer();
   screen.innerHTML = html;
   drawCharts();

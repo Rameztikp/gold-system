@@ -13,7 +13,8 @@ import { recoveryLogin, regenerateCodes, remainingCodes } from '../services/reco
 import * as passkeys from '../services/passkeys';
 import { runSetup, setupNeeded } from '../services/setup';
 import { endSession } from '../services/sessions';
-import { metaOf, requireSession, requireOwnerRole, setSessionCookie, clearSessionCookie, sessionToken } from '../middleware/session';
+import { metaOf, requireSession, requireSessionMaybeLocked, requireOwnerRole, setSessionCookie, clearSessionCookie, sessionToken, sessionHash } from '../middleware/session';
+import { unlockWithPasskey, unlockWithPassword } from '../services/unlock';
 
 const passkeyVerify = z.object({ challengeId: z.string().min(8), response: z.looseObject({ id: z.string() }) });
 const registerVerify = passkeyVerify.extend({ label: z.string().trim().min(1).max(40) });
@@ -34,7 +35,20 @@ export const authRoutes = new Hono<AppEnv>()
     setSessionCookie(c, await recoveryLogin(c.var.db, await body(c, recoveryLoginSchema), metaOf(c)));
     return c.json({ ok: true });
   })
-  .post('/login/passkey/options', async (c) => c.json(await passkeys.authenticationOptions(c.var.db, rp(c), Date.now())))
+  .post('/login/passkey/options', async (c) => c.json(await passkeys.authenticationOptions(c.var.db, rp(c), { now: Date.now() })))
+  .post('/ping', requireSession, (c) => c.json({ ok: true }))
+  .post('/unlock/options', requireSessionMaybeLocked, async (c) => c.json(await passkeys.authenticationOptions(c.var.db, rp(c), { now: Date.now(), userId: c.var.user.id })))
+  .post('/unlock/passkey', requireSessionMaybeLocked, async (c) => {
+    const input = await body(c, passkeyVerify);
+    const response = input.response as unknown as AuthenticationResponseJSON;
+    await unlockWithPasskey(c.var.db, rp(c), { user: c.var.user, idHash: await sessionHash(c), meta: metaOf(c), challengeId: input.challengeId, response });
+    return c.json({ ok: true });
+  })
+  .post('/unlock/password', requireSessionMaybeLocked, async (c) => {
+    const { password } = await body(c, z.object({ password: z.string().min(1).max(200) }));
+    await unlockWithPassword(c.var.db, { user: c.var.user, idHash: await sessionHash(c), meta: metaOf(c), password });
+    return c.json({ ok: true });
+  })
   .post('/login/passkey/verify', async (c) => {
     const input = await body(c, passkeyVerify);
     const response = input.response as unknown as AuthenticationResponseJSON;
@@ -47,7 +61,7 @@ export const authRoutes = new Hono<AppEnv>()
     clearSessionCookie(c);
     return c.json({ ok: true });
   })
-  .get('/me', requireSession, (c) => c.json(c.var.user))
+  .get('/me', requireSessionMaybeLocked, (c) => c.json(c.var.user))
   .get('/passkeys', requireSession, requireOwnerRole, async (c) =>
     c.json({ passkeys: await passkeys.listUserPasskeys(c.var.db, c.var.user.id), recoveryLeft: await remainingCodes(c.var.db, c.var.user.id) }))
   .post('/passkeys/options', requireSession, requireOwnerRole, async (c) =>

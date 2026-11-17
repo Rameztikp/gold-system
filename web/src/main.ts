@@ -17,12 +17,18 @@ import { drawCharts } from './views/chart';
 import { wireViewer } from './views/viewer';
 import { wireEvents } from './events';
 import { boot } from './auth';
+import { wireLock, setLockRender, lockNow } from './lock';
+import { setOnLocked } from './api';
+import { render } from './ui';
 
 document.documentElement.lang = 'ar';
 document.documentElement.dir = 'rtl';
 loadTheme();
 wireEvents();
 wireViewer();
+setLockRender(render);
+setOnLocked(lockNow);
+wireLock();
 let rz = 0;
 window.addEventListener('resize', () => { clearTimeout(rz); rz = window.setTimeout(drawCharts, 150); });
 void boot();

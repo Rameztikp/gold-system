@@ -59,6 +59,7 @@ export const sessions = sqliteTable('sessions', {
   expiresAt: integer('expires_at').notNull(),
   createdAt: integer('created_at').notNull(),
   revokedAt: integer('revoked_at'),
+  lastActive: integer('last_active'),
 });
 
 /* الجداول القديمة days/lines/photos (0000_init) فارغة ومتروكة بدون حذف (D-18). */

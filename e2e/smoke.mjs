@@ -3,6 +3,9 @@
 // التشغيل: node e2e/smoke.mjs http://localhost:8787 <مجلد الصور>
 import { chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+// يرجّع آخر نشاط للجلسات للماضي (قاعدة البيانات المحلية للتجربة) كأن الجهاز تُرك
+const idle = (min) => execSync(`npx wrangler d1 execute gold-db --local --persist-to ${process.env.WSTATE ?? '/tmp/wstate'} --command "UPDATE sessions SET last_active = ${Date.now() - min * 60000}"`, { stdio: 'ignore' });
 
 const BASE = process.argv[2] ?? 'http://localhost:8787';
 const SHOTS = process.argv[3] ?? '/tmp/shots';
@@ -11,7 +14,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME ?? '/
 const ctx = await browser.newContext({ locale: 'ar', viewport: { width: 1360, height: 900 } });
 const page = await ctx.newPage();
 const errors = [];
-page.on('console', (m) => { if (m.type() === 'error' && !/40[19]/.test(m.text())) errors.push(m.text()); });
+page.on('console', (m) => { if (m.type() === 'error' && !/40[19]|423/.test(m.text())) errors.push(m.text()); });
 page.on('pageerror', (e) => { console.log('PAGEERROR', String(e)); errors.push(String(e)); });
 const cdp = await ctx.newCDPSession(page);
 await cdp.send('WebAuthn.enable');
@@ -42,6 +45,7 @@ step('الإعداد ومفتاح المرور ثم الدخول');
 
 await page.click('.side [data-r=users]');
 await page.click('[data-act=adduser]');
+await page.waitForTimeout(150);
 await fill('name', 'مدخل البيانات'); await fill('username', 'clerk1'); await fill('password', 'password-123456');
 await page.click(`${M} button[type=submit]`);
 await page.waitForSelector('text=clerk1');
@@ -57,6 +61,7 @@ step('إضافة مدخل بيانات، ورموز الاسترجاع مع زر
 
 await page.click('.side [data-r=days]');
 await page.click('[data-act=newday]');
+await page.waitForTimeout(150);
 await page.fill(`${M} [name=date]`, DAY.id);
 await fill('buy', DAY.gold);
 await page.click(`${M} button[type=submit]`);
@@ -152,6 +157,15 @@ await page.click('[data-act=passkey]');
 await page.waitForSelector('.shell');
 step('الخروج ثم الدخول بالبصمة');
 
+idle(6);
+await page.click('.side [data-r=log]');
+await page.waitForSelector('[data-act=unlockkey]');
+await shot('08-locked-owner');
+await page.click('[data-act=unlockkey]');
+await page.waitForSelector('.shell');
+await page.waitForSelector('.loglist');
+step('قفل بعد 5 دقائق ← فتح بالبصمة ← يكمل من نفس الصفحة');
+
 await page.click('.side [data-act=logout]');
 await page.click('[data-act=pick][data-v=clerk]');
 await page.fill('[name=user]', 'clerk1');
@@ -160,6 +174,17 @@ await page.click('form[data-form=login] button[type=submit]');
 await page.waitForSelector('.shell');
 if (await page.locator('.side [data-r=users]').count()) throw new Error('مدخل البيانات يرى الإدارة');
 step('مدخل البيانات بدون «الإدارة»');
+
+idle(16);
+await page.reload();
+await page.waitForSelector('form[data-form=unlock]');
+await page.fill('[name=pw]', 'wrong-password');
+await page.click('form[data-form=unlock] button[type=submit]');
+await page.waitForSelector('text=كلمة المرور غير صحيحة');
+await page.fill('[name=pw]', 'password-123456');
+await page.click('form[data-form=unlock] button[type=submit]');
+await page.waitForSelector('.shell');
+step('مدخل البيانات: قفل بعد 15 دقيقة ← كلمة مرور خاطئة تُرفض ← الصحيحة تفتح');
 
 await browser.close();
 if (errors.length) { console.error('أخطاء في المتصفح:', errors); process.exit(1); }

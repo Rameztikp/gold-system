@@ -19,6 +19,7 @@ import { searchResults } from './views/search';
 import { resetAdminCache } from './views/admin';
 import { L } from './views/login';
 import * as auth from './auth';
+import { unlockWithKey, unlockWithPassword } from './lock';
 
 type Act = (el: HTMLElement) => void;
 
@@ -163,6 +164,7 @@ const ADMIN: Record<string, Act> = {
   pick: (el) => { L.pick = el.dataset.v === 'clerk' ? 'clerk' : 'owner'; L.err = ''; render(); },
   passkey: () => auth.passkeyLogin(),
   enter: () => auth.enterAfterSetup(),
+  unlockkey: () => unlockWithKey(),
 };
 
 const ACTS: Record<string, Act> = { ...NAV, ...ENTRY, ...DASH, ...SEARCH, ...PHOTOS, ...ADMIN };
@@ -170,6 +172,7 @@ const ACTS: Record<string, Act> = { ...NAV, ...ENTRY, ...DASH, ...SEARCH, ...PHO
 const SUBMIT: Record<string, (f: LiveForm, e: SubmitEvent) => void> = {
   login: (f, e) => auth.submitLogin(f, (e.submitter as HTMLElement | null)?.dataset.v ?? (L.pick === 'owner' ? 'recovery' : 'password')),
   setup: (f) => auth.submitSetup(f),
+  unlock: (f) => unlockWithPassword(f),
   adduser: (f) => auth.submitAddUser(f),
   userpw: (f) => auth.submitUserPw(f),
   line: (f) => saveLine(f),

@@ -7,6 +7,7 @@ import { S, U, lastDay, type Branch, type Me } from './state';
 import { api, errorText, ApiError } from './api';
 import { render, openModal, closeModal, dlgHead, okToast, toast, toTop } from './ui';
 import { L } from './views/login';
+import { LOCK, resetActivity } from './lock';
 import { resetAdminCache, adminUsers } from './views/admin';
 
 export async function loadState(): Promise<void> {
@@ -15,13 +16,25 @@ export async function loadState(): Promise<void> {
   U.user = st.me.role === 'owner' ? 'owner' : 'clerk';
 }
 
+/** الجلسة موجودة بس مقفولة: نعرف صاحبها، نعرض القفل، وبعد الفتح نحمّل البيانات. */
+async function bootLocked(): Promise<void> {
+  S.me = await api.get<Me>('/auth/me');
+  U.user = S.me.role === 'owner' ? 'owner' : 'clerk';
+  LOCK.locked = true; LOCK.afterUnlock = async () => { await loadState(); enterApp(); };
+  render();
+}
+
 function enterApp(): void {
+  resetActivity();
   U.route = U.user === 'owner' ? 'dash' : 'days'; U.day = lastDay(); U.step = 'sales'; U.period = null; U.rperiod = null;
   L.err = ''; L.busy = false; render(); toTop();
 }
 
 export async function boot(): Promise<void> {
-  try { await loadState(); enterApp(); return; } catch (e) { if (!(e instanceof ApiError) || e.status !== 401) { L.err = errorText(e); } }
+  try { await loadState(); enterApp(); return; } catch (e) {
+    if (e instanceof ApiError && e.code === 'session_locked') { await bootLocked(); return; }
+    if (!(e instanceof ApiError) || e.status !== 401) { L.err = errorText(e); }
+  }
   const s = await api.get<{ needed: boolean }>('/auth/setup').catch(() => ({ needed: false }));
   L.mode = s.needed ? 'setup' : 'login';
   render();
@@ -65,7 +78,7 @@ export const enterAfterSetup = (): void => { void attempt(async () => undefined,
 
 export async function logout(): Promise<void> {
   await api.post('/auth/logout').catch(() => undefined);
-  U.user = null; U.pv = null; S.days = {}; L.mode = 'login'; L.err = ''; closeModal(); render(); toTop();
+  U.user = null; U.pv = null; S.days = {}; L.mode = 'login'; resetActivity(); L.err = ''; closeModal(); render(); toTop();
 }
 
 /* ---------------------------------------------------------------- مفاتيح المرور ورموز الاسترجاع */

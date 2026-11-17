@@ -56,20 +56,25 @@ export async function verifyRegistration(
   ]);
 }
 
-export async function authenticationOptions(db: Db, rp: Rp, now: number) {
-  const options = await generateAuthenticationOptions({ rpID: rp.RP_ID, userVerification: 'required' });
-  return { challengeId: await storeChallenge(db, options.challenge, { userId: null, now }), options };
+export async function authenticationOptions(db: Db, rp: Rp, opts: { now: number; userId?: string }) {
+  const keys = opts.userId ? await authRepo.listPasskeys(db, opts.userId) : [];
+  const options = await generateAuthenticationOptions({
+    rpID: rp.RP_ID, userVerification: 'required',
+    allowCredentials: keys.map((p) => ({ id: p.id, transports: transportsOf(p.transports) })),
+  });
+  return { challengeId: await storeChallenge(db, options.challenge, { userId: opts.userId ?? null, now: opts.now }), options };
 }
 
-export async function verifyAuthentication(
-  db: Db, rp: Rp,
-  input: { challengeId: string; response: AuthenticationResponseJSON; meta: RequestMeta },
-): Promise<string> {
+interface Assertion { challengeId: string; response: AuthenticationResponseJSON; meta: RequestMeta; forUser?: string }
+
+/** يتحقق من البصمة ويرجع صاحبها. مع forUser لازم يكون المفتاح لنفس المستخدم (فتح القفل). */
+export async function verifyAssertion(db: Db, rp: Rp, input: Assertion): Promise<usersRepo.UserRow> {
   const ch = await authRepo.consumeChallenge(db, input.challengeId, input.meta.now);
   const pk = await authRepo.findPasskey(db, input.response.id);
   const user = pk ? await usersRepo.findById(db, pk.userId) : undefined;
-  if (!ch || !pk || !user || user.status !== 'active') {
-    await logSecurity(db, 'passkey_failed', input.meta);
+  const ok = ch && pk && user && user.status === 'active' && (!input.forUser || (user.id === input.forUser && ch.userId === input.forUser));
+  if (!ok) {
+    await logSecurity(db, input.forUser ? 'unlock_failed' : 'passkey_failed', input.meta);
     throw new AppError('unauthorized');
   }
   const v = await verifyAuthenticationResponse({
@@ -79,7 +84,11 @@ export async function verifyAuthentication(
   });
   if (!v.verified) throw new AppError('unauthorized');
   await authRepo.updatePasskeyCounter(db, pk.id, v.authenticationInfo.newCounter);
-  return createSession(db, user, input.meta);
+  return user;
+}
+
+export async function verifyAuthentication(db: Db, rp: Rp, input: Assertion): Promise<string> {
+  return createSession(db, await verifyAssertion(db, rp, input), input.meta);
 }
 
 export async function listUserPasskeys(db: Db, userId: string) {

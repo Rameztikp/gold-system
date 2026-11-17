@@ -12,6 +12,9 @@ export const findActiveSession = async (db: Db, idHash: string, now: number): Pr
     .where(and(eq(sessions.idHash, idHash), gt(sessions.expiresAt, now), isNull(sessions.revokedAt)))
     .get();
 
+export const touchSession = (db: Db, idHash: string, now: number) =>
+  db.update(sessions).set({ lastActive: now }).where(eq(sessions.idHash, idHash));
+
 export const revokeSession = (db: Db, idHash: string, now: number) =>
   db.update(sessions).set({ revokedAt: now }).where(eq(sessions.idHash, idHash));
 

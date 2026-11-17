@@ -2,7 +2,7 @@
 import { esc, num, dayMid, stamp, DAYS_AR } from '../util';
 import { ico } from '../icons';
 import { S, U } from '../state';
-import { api } from '../api';
+import { api, ApiError } from '../api';
 import { render, themeSeg } from '../ui';
 import { waFmt } from './wa';
 
@@ -15,7 +15,11 @@ export const resetAdminCache = (): void => { cache.log = null; cache.users = nul
 export const adminUsers = (): UserDto[] => cache.users ?? [];
 
 function load(job: () => Promise<void>): void {
-  job().then(render).catch(() => { cache.err = 'تعذّر التحميل. تأكد من الاتصال وحدّث الصفحة.'; render(); });
+  job().then(render).catch((e: unknown) => {
+    // النظام انقفل وقت التحميل: يعيد المحاولة تلقائيًا بعد الفتح
+    if (e instanceof ApiError && e.code === 'session_locked') return;
+    cache.err = 'تعذّر التحميل. تأكد من الاتصال وحدّث الصفحة.'; render();
+  });
 }
 const loading = (): string => `<section class="card" style="margin-top:14px"><div class="empty">${cache.err || 'جاري التحميل…'}</div></section>`;
 
