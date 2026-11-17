@@ -1,0 +1,28 @@
+name = "gold-system"
+main = "worker/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gold-db"
+database_id = "REPLACE_AFTER_d1_create"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "gold-photos"
+
+[triggers]
+crons = ["0 23 * * *"]
+
+[vars]
+RP_NAME = "نظام الذهب"
+# RP_ID و ORIGIN تُضبط حسب النطاق بعد النشر
+RP_ID = "localhost"
+ORIGIN = "http://localhost:5173"
