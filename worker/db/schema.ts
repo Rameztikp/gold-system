@@ -131,3 +131,10 @@ export const securityLog = sqliteTable('security_log', {
   userAgent: text('user_agent'),
   at: integer('at').notNull(),
 });
+
+/** رموز إعداد أول مرة (بديل SETUP_TOKEN). مجزّأة، وكل رمز مرة واحدة. */
+export const setupCodes = sqliteTable('setup_codes', {
+  codeHash: text('code_hash').primaryKey(),
+  expiresAt: integer('expires_at').notNull(),
+  usedAt: integer('used_at'),
+});

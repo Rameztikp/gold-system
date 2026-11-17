@@ -180,3 +180,18 @@ describe('رمز الإعداد غير مضبوط', () => {
     expect(r.status).toBe(503);
   });
 });
+
+describe('رمز إعداد من قاعدة البيانات', () => {
+  it('يقبل الرمز مرة واحدة فقط', async () => {
+    const { createDb } = await import('../worker/db/client');
+    const { sha256 } = await import('../worker/lib/crypto');
+    const { sql } = await import('drizzle-orm');
+    const env = { ...testEnv(), SETUP_TOKEN: undefined };
+    const db = createDb(env.DB);
+    await db.run(sql`INSERT INTO setup_codes (code_hash, expires_at) VALUES (${await sha256('ONE-TIME-CODE-1234')}, ${Date.now() + 60000})`);
+    const body = { token: 'ONE-TIME-CODE-1234', ownerName: 'يوسف', username: 'yousef12', branchName: 'الشارقة' };
+    expect((await new Client(env).post('/auth/setup', { ...body, token: 'wrong-code-12345678' })).status).toBe(401);
+    expect((await new Client(env).post('/auth/setup', body)).status).toBe(200);
+    expect((await new Client(env).post('/auth/setup', body)).status).toBe(409);
+  });
+});
