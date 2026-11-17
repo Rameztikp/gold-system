@@ -159,6 +159,7 @@ const ADMIN: Record<string, Act> = {
   adduser: () => openModal(auth.addUserDialog()),
   addkey: () => auth.addPasskey(),
   codes: () => auth.newCodes(),
+  copycodes: () => auth.copyCodes(modalRoot.querySelector<HTMLTextAreaElement>('.codes-src')?.value ?? ''),
   pick: (el) => { L.pick = el.dataset.v === 'clerk' ? 'clerk' : 'owner'; L.err = ''; render(); },
   passkey: () => auth.passkeyLogin(),
   enter: () => auth.enterAfterSetup(),

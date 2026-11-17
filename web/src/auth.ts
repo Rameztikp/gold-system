@@ -2,6 +2,7 @@
 import { startAuthentication, startRegistration, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
 import type { Day } from '../../shared/domain';
 import { esc, num } from './util';
+import { ico } from './icons';
 import { S, U, lastDay, type Branch, type Me } from './state';
 import { api, errorText, ApiError } from './api';
 import { render, openModal, closeModal, dlgHead, okToast, toast, toTop } from './ui';
@@ -86,7 +87,9 @@ export function newCodes(): void {
     resetAdminCache(); render();
     openModal(`<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-t">${dlgHead('رموز الاسترجاع')}
       <div class="dlg-note">اكتب هذه الرموز في ورقة واحفظها في مكان آمن. تظهر مرة واحدة فقط، وكل رمز ينفع مرة واحدة. الرموز القديمة بطلت.</div>
-      <div class="chips" style="margin-top:12px">${r.codes.map((c) => `<span class="pill wait">${num(esc(c))}</span>`).join('')}</div></div>`);
+      <div class="chips" style="margin-top:12px">${r.codes.map((c) => `<span class="pill wait">${num(esc(c))}</span>`).join('')}</div>
+      <textarea class="codes-src" hidden>${esc(r.codes.join('\n'))}</textarea>
+      <div class="dlg-f"><button type="button" class="btn-gold" data-act="copycodes">${ico('copy', 17)} انسخ الرموز</button></div></div>`);
   }).catch((e: unknown) => toast(errorText(e)));
 }
 
@@ -136,4 +139,11 @@ export function toggleUser(id: string): void {
   api.post(`/admin/users/${id}/status`, { status: on ? 'active' : 'suspended', version: u.version })
     .then(() => { resetAdminCache(); render(); okToast(`${on ? 'يستطيع' : 'لا يستطيع'} ${esc(u.name)} الدخول الآن`); })
     .catch((e: unknown) => toast(errorText(e)));
+}
+
+/** ينسخ رموز الاسترجاع (كل رمز في سطر) للصقها في الملاحظات أو الواتساب. */
+export function copyCodes(text: string): void {
+  navigator.clipboard.writeText(text)
+    .then(() => okToast('نُسخت الرموز. احفظها في مكان آمن.'))
+    .catch(() => toast('تعذّر النسخ التلقائي: حدّد الرموز وانسخها.'));
 }

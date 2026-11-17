@@ -45,8 +45,15 @@ await page.click('[data-act=adduser]');
 await fill('name', 'مدخل البيانات'); await fill('username', 'clerk1'); await fill('password', 'password-123456');
 await page.click(`${M} button[type=submit]`);
 await page.waitForSelector('text=clerk1');
+await page.click('[data-act=codes]');
+await page.waitForSelector(`${M} [data-act=copycodes]`);
+await ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
+await page.click(`${M} [data-act=copycodes]`);
+const copied = await page.evaluate(() => navigator.clipboard.readText());
+if (copied.split('\n').length !== 10) throw new Error('نسخ الرموز: ' + copied);
+await page.click(`${M} .dlg-h [data-act=close]`);
 await shot('01-users');
-step('إضافة مدخل بيانات');
+step('إضافة مدخل بيانات، ورموز الاسترجاع مع زر النسخ (10 رموز)');
 
 await page.click('.side [data-r=days]');
 await page.click('[data-act=newday]');
