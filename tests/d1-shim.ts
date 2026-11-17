@@ -61,7 +61,7 @@ export function createTestR2(): R2Bucket {
     },
     get: async (key: string) => {
       const o = store.get(key);
-      return o ? { body: new Blob([o.data as BlobPart]).stream(), text: async () => new TextDecoder().decode(o.data) } : null;
+      return o ? { body: new Blob([o.data as unknown as ArrayBuffer]).stream(), text: async () => new TextDecoder().decode(o.data) } : null;
     },
     list: async (opts?: { prefix?: string }) => ({
       objects: [...store.entries()].filter(([k]) => k.startsWith(opts?.prefix ?? '')).map(([key, v]) => ({ key, size: v.data.byteLength })),

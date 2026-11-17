@@ -6,13 +6,14 @@
     "dev:web": "vite",
     "dev:worker": "wrangler dev",
     "build": "vite build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint .",
     "test": "vitest run",
     "db:migrate:local": "wrangler d1 migrations apply gold-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply gold-db --remote",
     "deploy": "vite build && wrangler deploy",
-    "check": "npm run typecheck && npm run lint && npm run test"
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "e2e": "node e2e/smoke.mjs"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^14.0.0",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261116.1",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.1",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.6",
     "better-sqlite3": "^13.2.0",

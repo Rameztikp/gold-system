@@ -5,9 +5,9 @@ export interface Env {
   PHOTOS: R2Bucket;
   SETUP_TOKEN?: string;
   BACKUP_TOKEN?: string;
-  RP_ID: string;
+  RP_ID?: string;
   RP_NAME: string;
-  ORIGIN: string;
+  ORIGIN?: string;
 }
 
 export type Role = 'owner' | 'entry';

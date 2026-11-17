@@ -1,0 +1,66 @@
+/** كل نصوص الواجهة في مكان واحد. */
+export const T = {
+  appName: 'نظام الذهب',
+  nav: { dashboard: 'اللوحة', days: 'الأيام', reports: 'التقارير', search: 'البحث', admin: 'الإدارة', audit: 'سجل التعديلات', users: 'المستخدمون', settings: 'الإعدادات', logout: 'خروج', theme: 'تغيير الثيم' },
+  login: {
+    title: 'تسجيل الدخول', passkey: 'الدخول بمفتاح المرور', orPassword: 'مدخل البيانات', username: 'اسم المستخدم',
+    password: 'كلمة المرور', submit: 'دخول', recovery: 'الدخول برمز استرجاع', code: 'رمز الاسترجاع',
+    failed: 'بيانات الدخول غير صحيحة', locked: 'الحساب مقفول مؤقتًا بسبب محاولات كثيرة. حاول بعد 15 دقيقة.',
+    passkeyFailed: 'ما قدرنا نتحقق من مفتاح المرور', back: 'رجوع',
+  },
+  setup: {
+    title: 'إعداد أول مرة', token: 'رمز الإعداد', ownerName: 'اسم صاحب المحل', username: 'اسم المستخدم (إنجليزي صغير)',
+    branchName: 'اسم الفرع', submit: 'ابدأ', next: 'الخطوة التالية: أضف مفتاح المرور (Face ID)', addPasskey: 'أضف مفتاح المرور',
+  },
+  period: { day: 'يوم', week: 'أسبوع', month: 'شهر', prev: 'السابق', next: 'التالي', today: 'اليوم' },
+  dash: {
+    attention: 'يحتاج انتباهك', allGood: 'كل الأيام مطابقة للدفتر 👍', notCompared: 'لم يُقارن', ledgerError: 'خطأ في جمع الدفتر',
+    sales: 'المبيعات', purchases: 'المشتريات', expenses: 'المصروفات', wages: 'إجمالي الأجور', chart: 'المبيعات اليومية',
+    pieces: 'قطعة', lines: 'سطر',
+  },
+  status: { matched: 'مطابق للدفتر', ledger_error: 'خطأ في جمع الدفتر', not_compared: 'لم يُقارن' },
+  days: { title: 'الأيام', newDay: 'يوم جديد', empty: 'ما فيه أيام في هذه الفترة', date: 'التاريخ', create: 'افتح اليوم', month: 'الشهر' },
+  day: {
+    steps: ['المبيعات', 'المشتريات', 'المصروفات', 'المقارنة بالدفتر'], price: 'سعر الجرام', note: 'ملاحظة', save: 'حفظ',
+    photos: 'صور الدفتر', addPhoto: 'أضف صورة', whatsapp: 'واتساب', addLine: 'أضف سطر', empty: 'ما فيه سطور',
+    total: 'المجموع', cancelled: 'ملغى', saved: 'تم الحفظ', print: 'طباعة',
+  },
+  line: {
+    add: 'إضافة سطر', edit: 'تعديل السطر', description: 'البيان', pieces: 'القطع', grams: 'جرام', milli: 'ملي', amount: 'المبلغ',
+    wages: 'الأجور', commission: 'العمولة', extra: 'بند إضافي', save: 'حفظ', saveNext: 'حفظ وجديد', cancel: 'إلغاء السطر',
+    restore: 'إرجاع السطر', reason: 'سبب الإلغاء', confirmCancel: 'إلغاء', duplicate: 'هذا السطر مطابق للسطر الذي قبله. تبي تضيفه مرة ثانية؟',
+    yesAdd: 'نعم، أضفه', no: 'لا', close: 'إغلاق', weight: 'الوزن', cancelledBecause: 'ملغى بسبب:',
+  },
+  compare: {
+    title: 'المقارنة بالدفتر', item: 'البند', system: 'النظام', ledger: 'الدفتر', diff: 'الفرق', run: 'قارن',
+    salesFils: 'مبلغ المبيعات', salesCg: 'وزن المبيعات', purchasesFils: 'مبلغ المشتريات', purchasesCg: 'وزن المشتريات',
+    expensesFils: 'المصروفات', wagesFils: 'إجمالي الأجور', mismatch: 'فيه بنود غير مطابقة. راجع السطور، أو إذا الخطأ في جمع الدفتر أكّده.',
+    confirmLedger: 'الخطأ في جمع الدفتر', matched: 'مطابق للدفتر ✓',
+  },
+  reports: { title: 'التقارير', from: 'من', to: 'إلى', summary: 'الملخص', detail: 'التفصيلي', show: 'اعرض', print: 'طباعة / PDF', kind: 'النوع' },
+  kinds: { sale: 'بيع', purchase: 'شراء', expense: 'مصروف' },
+  search: { title: 'البحث', placeholder: 'ابحث في كل السطور…', none: 'ما فيه نتائج', hint: 'اكتب بداية الكلمة' },
+  audit: { title: 'سجل التعديلات', more: 'المزيد', when: 'الوقت', who: 'المستخدم', what: 'العملية',
+    actions: { create: 'إضافة', update: 'تعديل', cancel: 'إلغاء', restore: 'إرجاع', compare: 'مقارنة', update_header: 'تعديل رأس اليوم', active: 'تفعيل', suspended: 'إيقاف', reset_password: 'تغيير كلمة المرور' } as Record<string, string>,
+    entities: { line: 'سطر', day: 'يوم', user: 'مستخدم', branch: 'الإعدادات', photo: 'صورة' } as Record<string, string> },
+  users: {
+    title: 'المستخدمون', add: 'إضافة مدخل بيانات', name: 'الاسم', username: 'اسم المستخدم', password: 'كلمة المرور (10 أحرف أو أكثر)',
+    role: { owner: 'صاحب المحل', entry: 'مدخل البيانات' }, active: 'نشط', suspended: 'موقوف', suspend: 'إيقاف', activate: 'تفعيل',
+    resetPassword: 'كلمة مرور جديدة', myKeys: 'مفاتيح المرور', addKey: 'أضف مفتاح', keyLabel: 'اسم المفتاح (مثلاً: آيفون)',
+    codes: 'رموز الاسترجاع', newCodes: 'أنشئ 10 رموز جديدة', codesLeft: 'رموز باقية:', codesNote: 'اكتب هذه الرموز في ورقة واحفظها. تظهر مرة واحدة فقط.',
+    backupKeyHint: 'أضف مفتاحًا احتياطيًا ثانيًا (جهاز ثاني أو مفتاح أمان).',
+  },
+  settings: { title: 'الإعدادات', name: 'اسم الفرع', currency: 'العملة (مثل AED)', country: 'رمز الدولة (مثل 971)', timezone: 'التوقيت (مثل Asia/Dubai)', weekStart: 'بداية الأسبوع', save: 'حفظ' },
+  weekdays: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+  whatsapp: {
+    header: (branch: string, date: string) => `*${branch}* — ملخص ${date}`,
+    sales: 'المبيعات', purchases: 'المشتريات', expenses: 'المصروفات', wages: 'الأجور', status: 'الحالة',
+  },
+  errors: {
+    network: 'ما فيه اتصال. البيانات ما ضاعت — حاول مرة ثانية.', conflict: 'شخص ثاني عدّل نفس البيانات. حدّثنا الصفحة، راجع وجرّب مرة ثانية.',
+    generic: 'صار خطأ. حاول مرة ثانية.', forbidden: 'ما عندك صلاحية لهذا.', invalid: 'تأكد من القيم المدخلة.', tooLarge: 'الصورة كبيرة جدًا.',
+    notImage: 'الملف مو صورة.',
+  },
+  ok: 'تم',
+  loading: 'جاري التحميل…',
+} as const;

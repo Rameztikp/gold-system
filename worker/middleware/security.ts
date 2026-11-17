@@ -1,6 +1,15 @@
 import type { MiddlewareHandler } from 'hono';
 import type { AppEnv } from '../env';
 import { AppError } from '../lib/errors';
+import type { Env } from '../env';
+
+/** الأصل المتوقع: من الإعداد إذا موجود، وإلا عنوان الموقع نفسه. */
+export const expectedOrigin = (env: Pick<Env, 'ORIGIN'>, url: string): string => env.ORIGIN || new URL(url).origin;
+
+export function relyingParty(env: Env, url: string): { RP_ID: string; RP_NAME: string; ORIGIN: string } {
+  const origin = expectedOrigin(env, url);
+  return { RP_ID: env.RP_ID || new URL(origin).hostname, RP_NAME: env.RP_NAME, ORIGIN: origin };
+}
 
 const CSP = [
   "default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' blob: data:",
@@ -23,7 +32,7 @@ export const securityHeaders: MiddlewareHandler<AppEnv> = async (c, next) => {
 /** فحص Origin لكل طلب يغيّر البيانات. */
 export const checkOrigin: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
-    if (c.req.header('Origin') !== c.env.ORIGIN) throw new AppError('bad_origin');
+    if (c.req.header('Origin') !== expectedOrigin(c.env, c.req.url)) throw new AppError('bad_origin');
   }
   await next();
 };

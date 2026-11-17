@@ -9,11 +9,11 @@ import * as usersRepo from '../repo/users';
 import { b64url, randomToken } from '../lib/crypto';
 import { AppError } from '../lib/errors';
 import type { Db } from '../db/client';
-import type { Env, SessionUser } from '../env';
+import type { SessionUser } from '../env';
 import { createSession, logSecurity, type RequestMeta } from './sessions';
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
-type Rp = Pick<Env, 'RP_ID' | 'RP_NAME' | 'ORIGIN'>;
+type Rp = { RP_ID: string; RP_NAME: string; ORIGIN: string };
 
 async function storeChallenge(db: Db, challenge: string, opts: { userId: string | null; now: number }): Promise<string> {
   const id = randomToken(16);
@@ -28,7 +28,7 @@ export async function registrationOptions(db: Db, rp: Rp, ctx: { user: SessionUs
   const existing = await authRepo.listPasskeys(db, ctx.user.id);
   const options = await generateRegistrationOptions({
     rpName: rp.RP_NAME, rpID: rp.RP_ID, userName: ctx.user.name, userDisplayName: ctx.user.name,
-    userID: new TextEncoder().encode(ctx.user.id), attestationType: 'none',
+    userID: new Uint8Array(new TextEncoder().encode(ctx.user.id)), attestationType: 'none',
     excludeCredentials: existing.map((p) => ({ id: p.id, transports: transportsOf(p.transports) })),
     authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
   });

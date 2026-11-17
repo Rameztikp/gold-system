@@ -1,7 +1,11 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
+import type { Context } from 'hono';
 import type { AppEnv } from '../env';
+import { relyingParty } from '../middleware/security';
+
+const rp = (c: Context<AppEnv>) => relyingParty(c.env, c.req.url);
 import { passwordLoginSchema, recoveryLoginSchema, setupSchema } from '../../shared/api';
 import { body } from '../lib/validate';
 import { passwordLogin } from '../services/password';
@@ -30,11 +34,11 @@ export const authRoutes = new Hono<AppEnv>()
     setSessionCookie(c, await recoveryLogin(c.var.db, await body(c, recoveryLoginSchema), metaOf(c)));
     return c.json({ ok: true });
   })
-  .post('/login/passkey/options', async (c) => c.json(await passkeys.authenticationOptions(c.var.db, c.env, Date.now())))
+  .post('/login/passkey/options', async (c) => c.json(await passkeys.authenticationOptions(c.var.db, rp(c), Date.now())))
   .post('/login/passkey/verify', async (c) => {
     const input = await body(c, passkeyVerify);
     const response = input.response as unknown as AuthenticationResponseJSON;
-    setSessionCookie(c, await passkeys.verifyAuthentication(c.var.db, c.env, { challengeId: input.challengeId, response, meta: metaOf(c) }));
+    setSessionCookie(c, await passkeys.verifyAuthentication(c.var.db, rp(c), { challengeId: input.challengeId, response, meta: metaOf(c) }));
     return c.json({ ok: true });
   })
   .post('/logout', async (c) => {
@@ -47,11 +51,11 @@ export const authRoutes = new Hono<AppEnv>()
   .get('/passkeys', requireSession, requireOwnerRole, async (c) =>
     c.json({ passkeys: await passkeys.listUserPasskeys(c.var.db, c.var.user.id), recoveryLeft: await remainingCodes(c.var.db, c.var.user.id) }))
   .post('/passkeys/options', requireSession, requireOwnerRole, async (c) =>
-    c.json(await passkeys.registrationOptions(c.var.db, c.env, { user: c.var.user, now: Date.now() })))
+    c.json(await passkeys.registrationOptions(c.var.db, rp(c), { user: c.var.user, now: Date.now() })))
   .post('/passkeys/verify', requireSession, requireOwnerRole, async (c) => {
     const input = await body(c, registerVerify);
     const response = input.response as unknown as RegistrationResponseJSON;
-    await passkeys.verifyRegistration(c.var.db, c.env, { user: c.var.user, now: Date.now(), challengeId: input.challengeId, response, label: input.label });
+    await passkeys.verifyRegistration(c.var.db, rp(c), { user: c.var.user, now: Date.now(), challengeId: input.challengeId, response, label: input.label });
     return c.json({ ok: true });
   })
   .post('/recovery-codes', requireSession, requireOwnerRole, async (c) =>

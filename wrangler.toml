@@ -11,7 +11,7 @@ run_worker_first = ["/api/*"]
 [[d1_databases]]
 binding = "DB"
 database_name = "gold-db"
-database_id = "REPLACE_AFTER_d1_create"
+database_id = "e02c7a78-7655-4592-a878-eb665ee4694d"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
@@ -23,6 +23,4 @@ crons = ["0 23 * * *"]
 
 [vars]
 RP_NAME = "نظام الذهب"
-# RP_ID و ORIGIN تُضبط حسب النطاق بعد النشر
-RP_ID = "localhost"
-ORIGIN = "http://localhost:5173"
+# ORIGIN و RP_ID اختيارية: إذا فارغة تُؤخذ من عنوان الموقع نفسه.
