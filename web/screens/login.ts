@@ -1,6 +1,6 @@
 import { html, render, $, val, type Safe } from '../core/dom';
 import { T } from '../texts';
-import { api, ApiError } from '../core/api';
+import { api, ApiError, errorText } from '../core/api';
 import { loginWithPasskey, addPasskey } from '../core/passkey';
 import { toast } from '../ui/toast';
 
@@ -24,6 +24,13 @@ function showError(root: HTMLElement, e: unknown): void {
   const el = $('[data-error]', root);
   el.hidden = false;
   el.textContent = e instanceof ApiError && e.status === 423 ? T.login.locked : T.login.failed;
+}
+
+function showSetupError(root: HTMLElement, e: unknown): void {
+  const el = $('[data-error]', root);
+  el.hidden = false;
+  const status = e instanceof ApiError ? e.status : 0;
+  el.textContent = status === 401 ? T.setup.badToken : status === 409 ? T.setup.done : status === 400 ? T.setup.badFields : errorText(e);
 }
 
 const done = (): void => { location.hash = '/'; location.reload(); };
@@ -60,7 +67,7 @@ export function setupScreen(): void {
   root.querySelector('[data-form=setup]')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const body = { token: val(root, 'token'), ownerName: val(root, 'ownerName'), username: val(root, 'username'), branchName: val(root, 'branchName') };
-    api.post('/auth/setup', body).then(() => afterSetup(root)).catch((err) => showError(root, err));
+    api.post('/auth/setup', body).then(() => afterSetup(root)).catch((err) => showSetupError(root, err));
   });
 }
 
