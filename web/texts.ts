@@ -12,6 +12,7 @@ export const T = {
     title: 'إعداد أول مرة', token: 'رمز الإعداد', ownerName: 'اسم صاحب المحل', username: 'اسم المستخدم (إنجليزي صغير)',
     branchName: 'اسم الفرع', submit: 'ابدأ',
     badToken: 'رمز الإعداد غير صحيح. تأكد إنه نفس قيمة SETUP_TOKEN في Cloudflare بالضبط.',
+    notConfigured: 'النظام ما يشوف SETUP_TOKEN. لازم ينضاف في Settings ← Variables and Secrets (مو في Build).',
     done: 'الإعداد تم من قبل. ادخل من صفحة تسجيل الدخول.', badFields: 'تأكد من الخانات: اسم المستخدم إنجليزي صغير 3 أحرف أو أكثر.', next: 'الخطوة التالية: أضف مفتاح المرور (Face ID)', addPasskey: 'أضف مفتاح المرور',
   },
   period: { day: 'يوم', week: 'أسبوع', month: 'شهر', prev: 'السابق', next: 'التالي', today: 'اليوم' },

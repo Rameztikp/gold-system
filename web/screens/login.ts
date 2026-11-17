@@ -30,7 +30,17 @@ function showSetupError(root: HTMLElement, e: unknown): void {
   const el = $('[data-error]', root);
   el.hidden = false;
   const status = e instanceof ApiError ? e.status : 0;
-  el.textContent = status === 401 ? T.setup.badToken : status === 409 ? T.setup.done : status === 400 ? T.setup.badFields : errorText(e);
+  el.textContent = status === 401 ? T.setup.badToken : status === 409 ? T.setup.done : status === 503 ? T.setup.notConfigured : status === 400 ? T.setup.badFields : errorText(e);
+}
+
+/** يمنع الضغط المكرر ويوضح إن الطلب شغّال، ويمسح الخطأ القديم. الخانات ما تنمسح. */
+async function busy(form: Element, run: () => Promise<void>): Promise<void> {
+  const btn = form.querySelector<HTMLButtonElement>('button');
+  const label = btn?.textContent ?? '';
+  const err = form.closest('.auth-card')?.querySelector<HTMLElement>('[data-error]');
+  if (err) err.hidden = true;
+  if (btn) { btn.disabled = true; btn.textContent = T.loading; }
+  try { await run(); } finally { if (btn) { btn.disabled = false; btn.textContent = label; } }
 }
 
 const done = (): void => { location.hash = '/'; location.reload(); };
@@ -43,11 +53,11 @@ export function loginScreen(): void {
   });
   root.querySelector('[data-form=password]')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    api.post('/auth/login/password', { username: val(root, 'username'), password: val(root, 'password') }).then(done).catch((err) => showError(root, err));
+    void busy(e.currentTarget as Element, () => api.post('/auth/login/password', { username: val(root, 'username'), password: val(root, 'password') }).then(done).catch((err) => showError(root, err)));
   });
   root.querySelector('[data-form=recovery]')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    api.post('/auth/login/recovery', { username: val(root, 'r_username'), code: val(root, 'code') }).then(done).catch((err) => showError(root, err));
+    void busy(e.currentTarget as Element, () => api.post('/auth/login/recovery', { username: val(root, 'r_username'), code: val(root, 'code') }).then(done).catch((err) => showError(root, err)));
   });
 }
 
@@ -67,7 +77,7 @@ export function setupScreen(): void {
   root.querySelector('[data-form=setup]')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const body = { token: val(root, 'token'), ownerName: val(root, 'ownerName'), username: val(root, 'username'), branchName: val(root, 'branchName') };
-    api.post('/auth/setup', body).then(() => afterSetup(root)).catch((err) => showSetupError(root, err));
+    void busy(e.currentTarget as Element, () => api.post('/auth/setup', body).then(() => afterSetup(root)).catch((err) => showSetupError(root, err)));
   });
 }
 

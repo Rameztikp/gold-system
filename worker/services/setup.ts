@@ -14,7 +14,8 @@ export interface SetupInput { token: string; ownerName: string; username: string
 
 /** إعداد أول مرة: ينشئ الفرع وصاحب المحل. يعمل مرة واحدة فقط. */
 export async function runSetup(db: Db, input: SetupInput & { expectedToken: string | undefined }, meta: RequestMeta): Promise<string> {
-  if (!input.expectedToken || !safeEqual(input.token, input.expectedToken)) {
+  if (!input.expectedToken) throw new AppError('not_configured');
+  if (!safeEqual(input.token.trim(), input.expectedToken.trim())) {
     await logSecurity(db, 'setup_failed', meta);
     throw new AppError('unauthorized');
   }

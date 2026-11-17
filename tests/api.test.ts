@@ -172,3 +172,11 @@ describe('الصور والنسخ', () => {
     expect((await c.get('/backup')).status).toBe(401);
   });
 });
+
+describe('رمز الإعداد غير مضبوط', () => {
+  it('يرجع 503 بدل 401', async () => {
+    const env = { ...testEnv(), SETUP_TOKEN: undefined };
+    const r = await new Client(env).post('/auth/setup', { token: 'whatever-token-123456', ownerName: 'ab', username: 'abc', branchName: 'ab' });
+    expect(r.status).toBe(503);
+  });
+});

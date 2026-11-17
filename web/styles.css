@@ -41,6 +41,7 @@ h1 { font-size: 1.35rem; } h2 { font-size: 1.15rem; } h3 { font-size: 1rem; colo
 .btn.ghost { background: transparent; }
 .btn.small { min-height: 34px; padding: 6px 10px; font-size: 0.9rem; }
 .btn.block { width: 100%; justify-content: center; }
+.btn:disabled { opacity: 0.6; cursor: wait; }
 .icon-btn { background: transparent; border: 1px solid var(--line); color: var(--text); border-radius: 10px; width: 40px; height: 40px; cursor: pointer; font-size: 1.1rem; }
 input, select, textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px;
   padding: 10px 12px; font: inherit; min-height: 44px; }
