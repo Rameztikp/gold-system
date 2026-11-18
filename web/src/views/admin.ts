@@ -63,7 +63,7 @@ function keysCard(k: Keys): string {
   const list = k.passkeys.map((p) => `<span class="pill ok" style="font-size:13px;padding:7px 12px">${ico('key', 14)} ${esc(p.label)}</span>`).join('');
   return `<section class="card scard wide"><h2>دخولك بالبصمة</h2>
     <p class="sub">مفتاح المرور يدخلك بـ Face ID بدون كلمة مرور. أضف مفتاحًا ثانيًا احتياطيًا (جهاز ثاني)، واحفظ رموز الاسترجاع في ورقة: هي طريقك إذا ضاع الجوال.</p>
-    <div class="chips" style="align-items:center">${list || '<span class="pill wait">لا يوجد مفتاح مرور بعد</span>'}<button type="button" class="btn-gold btn-sm" data-act="addkey">${ico('plus', 15)} أضف مفتاح مرور لهذا الجهاز</button></div>
+    <div class="chips" style="align-items:center">${list || '<span class="pill wait">لا يوجد مفتاح مرور بعد</span>'}<button type="button" class="btn-gold btn-sm" data-act="addkey">${ico('plus', 15)} أضف مفتاح مرور لهذا الجهاز</button><button type="button" class="btn-ghost btn-sm" data-act="linkcode">${ico('key', 15)} أضف جهاز جديد (رمز ربط)</button></div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px"><span class="u">رموز الاسترجاع الباقية: ${num(k.recoveryLeft)}</span><button type="button" class="btn-ghost btn-sm" data-act="codes">أنشئ 10 رموز جديدة</button></div></section>`;
 }
 

@@ -70,3 +70,6 @@ export const logQuerySchema = z.object({
   kind: z.enum(['all', 'add', 'edit', 'cancel', 'day', 'check']).default('all'),
   before: z.coerce.number().int().positive().optional(),
 });
+
+/** رمز ربط جهاز جديد: 6 أرقام (تُقبل الأرقام العربية). */
+export const linkLoginSchema = z.object({ code: z.string().trim().min(6).max(20) });

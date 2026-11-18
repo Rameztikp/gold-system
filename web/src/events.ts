@@ -161,6 +161,7 @@ const ADMIN: Record<string, Act> = {
   adduser: () => openModal(auth.addUserDialog()),
   addkey: () => auth.addPasskey(),
   codes: () => auth.newCodes(),
+  linkcode: () => auth.linkCode(),
   copycodes: () => auth.copyCodes(modalRoot.querySelector<HTMLTextAreaElement>('.codes-src')?.value ?? ''),
   pick: (el) => { L.pick = el.dataset.v === 'clerk' ? 'clerk' : 'owner'; L.err = ''; render(); },
   passkey: () => auth.passkeyLogin(),
@@ -173,7 +174,7 @@ const ADMIN: Record<string, Act> = {
 const ACTS: Record<string, Act> = { ...NAV, ...ENTRY, ...DASH, ...SEARCH, ...PHOTOS, ...ADMIN };
 
 const SUBMIT: Record<string, (f: LiveForm, e: SubmitEvent) => void> = {
-  login: (f, e) => auth.submitLogin(f, (e.submitter as HTMLElement | null)?.dataset.v ?? (L.pick === 'owner' ? 'recovery' : 'password')),
+  login: (f, e) => auth.submitLogin(f, (e.submitter as HTMLElement | null)?.dataset.v ?? (L.pick !== 'owner' ? 'password' : (document.activeElement as HTMLInputElement | null)?.name === 'l_code' ? 'link' : 'recovery')),
   setup: (f) => auth.submitSetup(f),
   unlock: (f) => unlockWithPassword(f),
   adduser: (f) => auth.submitAddUser(f),

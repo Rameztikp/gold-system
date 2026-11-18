@@ -178,6 +178,34 @@ await page.waitForSelector('.shell');
 await page.waitForSelector('.loglist');
 step('قفل بعد 5 دقائق ← فتح بالبصمة ← يكمل من نفس الصفحة');
 
+await page.click('.side [data-r=users]');
+await page.click('[data-act=linkcode]');
+await page.waitForSelector(`${M} .link-code`);
+await shot('09-link-code');
+const linkCode = (await page.textContent(`${M} .link-code`)).replace(/\D/g, '');
+await page.click(`${M} .dlg-f [data-act=close]`);
+{
+  const ctx2 = await browser.newContext({ locale: 'ar', viewport: { width: 1360, height: 900 } });
+  const p2 = await ctx2.newPage();
+  const cdp2 = await ctx2.newCDPSession(p2);
+  await cdp2.send('WebAuthn.enable');
+  await cdp2.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true } });
+  await p2.goto(BASE);
+  await p2.click('summary:has-text("رمز ربط")');
+  await p2.type('[name=l_code]', linkCode);
+  await p2.click('button[data-v=link]');
+  await p2.waitForSelector('.shell');
+  await p2.waitForSelector('#modal-root [data-act=addkey]');
+  await p2.screenshot({ path: `${SHOTS}/10-new-device-passkey.png` });
+  await p2.click('#modal-root [data-act=addkey]');
+  await p2.waitForFunction(() => !document.querySelector('#modal-root [data-act=addkey]'));
+  await p2.click('.side [data-act=logout]');
+  await p2.click('[data-act=passkey]');
+  await p2.waitForSelector('.shell');
+  await ctx2.close();
+}
+step('جهاز جديد برمز ربط ← يسجل بصمته ← يدخل بالبصمة');
+
 await page.click('.side [data-act=logout]');
 await page.click('[data-act=pick][data-v=clerk]');
 await page.fill('[name=user]', 'clerk1');

@@ -43,7 +43,35 @@ export async function boot(): Promise<void> {
 
 async function attempt(job: () => Promise<unknown>, fail: (e: unknown) => string): Promise<void> {
   L.busy = true; L.err = ''; render();
-  try { await job(); await loadState(); enterApp(); } catch (e) { L.busy = false; L.err = fail(e); render(); }
+  try { await job(); await loadState(); enterApp(); const next = afterLogin; afterLogin = null; next?.(); } catch (e) { afterLogin = null; L.busy = false; L.err = fail(e); render(); }
+}
+let afterLogin: (() => void) | null = null;
+
+/** بعد الدخول برمز الربط: يطلب تسجيل بصمة هذا الجهاز (لازم ضغطة من المستخدم عشان نافذة البصمة). */
+function askForPasskey(): void {
+  openModal(`<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-t">${dlgHead('سجّل بصمة هذا الجهاز')}
+    <div class="dlg-note">دخلت برمز الربط. سجّل بصمة هذا الجهاز الحين، وبعدها تدخل بـ Face ID على طول بدون رموز.</div>
+    <div class="dlg-f"><button type="button" class="btn-gold" data-act="addkey">${ico('key', 17)} سجّل البصمة</button><button type="button" class="btn-ghost" data-act="close">بعدين</button></div></div>`);
+}
+
+/** اسم واضح للمفتاح: نوع الجهاز والمتصفح (الآيباد يتسمّى «ماك» في بعض النسخ). */
+export function deviceLabel(ua = navigator.userAgent): string {
+  const ipad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const dev = ipad ? 'آيباد' : /iPhone/.test(ua) ? 'آيفون' : /Android/.test(ua) ? 'أندرويد' : /Macintosh/.test(ua) ? 'ماك' : 'كمبيوتر';
+  const br = /CriOS|Chrome\//.test(ua) && !/Edg/.test(ua) ? 'Chrome' : /EdgiOS|Edg\//.test(ua) ? 'Edge' : /FxiOS|Firefox/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : '';
+  return br ? `${dev} (${br})` : dev;
+}
+
+/** رمز ربط جهاز جديد: 6 أرقام، 10 دقائق، مرة وحدة. */
+export function linkCode(): void {
+  api.post<{ code: string; expiresAt: number }>('/auth/link').then((r) => {
+    const mins = Math.max(1, Math.round((r.expiresAt - Date.now()) / 60000));
+    openModal(`<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-t">${dlgHead('أضف جهاز جديد')}
+      <div class="link-code" aria-label="رمز الربط">${num(esc(r.code.replace(/(\d{3})(\d{3})/, '$1 $2')))}</div>
+      <ol class="dlg-note link-steps"><li>افتح النظام في الجهاز الجديد.</li><li>اضغط «جهاز جديد؟ ادخل برمز ربط من جوالك».</li><li>اكتب الرمز، وبعدها سجّل البصمة.</li></ol>
+      <p class="sub">الرمز يشتغل مرة وحدة، لمدة ${num(mins)} دقائق. لا ترسله لأحد.</p>
+      <div class="dlg-f"><button type="button" class="btn-ghost" data-act="close">تم</button></div></div>`);
+  }).catch((e: unknown) => toast(errorText(e)));
 }
 const loginFail = (e: unknown): string => (e instanceof ApiError && e.status === 423 ? 'الحساب مقفول مؤقتًا بسبب محاولات كثيرة. جرّب بعد 15 دقيقة.'
   : e instanceof ApiError && e.status === 401 ? 'بيانات الدخول غير صحيحة.' : errorText(e));
@@ -56,6 +84,7 @@ export function passkeyLogin(): void {
 
 export function submitLogin(f: HTMLFormElement, kind: string | undefined): void {
   const v = (n: string): string => f.querySelector<HTMLInputElement>(`[name="${n}"]`)?.value ?? '';
+  if (kind === 'link') { afterLogin = askForPasskey; void attempt(() => api.post('/auth/login/link', { code: v('l_code') }), (e) => (e instanceof ApiError && e.status === 401 ? 'الرمز غلط أو انتهى. اطلع رمز جديد من جوالك.' : loginFail(e))); return; }
   if (kind === 'recovery') { void attempt(() => api.post('/auth/login/recovery', { username: v('r_user').trim().toLowerCase(), code: v('r_code') }), loginFail); return; }
   void attempt(() => api.post('/auth/login/password', { username: v('user').trim().toLowerCase(), password: v('pw') }), loginFail);
 }
@@ -83,7 +112,7 @@ export async function logout(opts: { recovery?: boolean } = {}): Promise<void> {
 
 /* ---------------------------------------------------------------- مفاتيح المرور ورموز الاسترجاع */
 export function addPasskey(): void {
-  const label = /iPhone|iPad/.test(navigator.userAgent) ? 'آيفون' : /Android/.test(navigator.userAgent) ? 'أندرويد' : 'كمبيوتر';
+  const label = deviceLabel();
   (async () => {
     const { challengeId, options } = await api.post<{ challengeId: string; options: PublicKeyCredentialCreationOptionsJSON }>('/auth/passkeys/options');
     const response = await startRegistration({ optionsJSON: options });
@@ -91,7 +120,7 @@ export function addPasskey(): void {
   })().then(async () => {
     okToast('أُضيف مفتاح المرور. من الحين تدخل بالبصمة.');
     if (L.mode === 'afterSetup') { enterAfterSetup(); return; }
-    resetAdminCache(); render();
+    closeModal(); resetAdminCache(); render();
   }).catch((e: unknown) => { const m = e instanceof ApiError ? errorText(e) : 'ما انضاف المفتاح. جرّب مرة ثانية.'; if (U.user) toast(m); else { L.err = m; render(); } });
 }
 

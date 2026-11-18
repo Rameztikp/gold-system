@@ -6,7 +6,8 @@ import type { AppEnv } from '../env';
 import { relyingParty } from '../middleware/security';
 
 const rp = (c: Context<AppEnv>) => relyingParty(c.env, c.req.url);
-import { passwordLoginSchema, recoveryLoginSchema, setupSchema } from '../../shared/api';
+import { linkLoginSchema, passwordLoginSchema, recoveryLoginSchema, setupSchema } from '../../shared/api';
+import { createLinkCode, linkLogin } from '../services/link';
 import { body } from '../lib/validate';
 import { passwordLogin } from '../services/password';
 import { recoveryLogin, regenerateCodes, remainingCodes } from '../services/recovery';
@@ -35,6 +36,11 @@ export const authRoutes = new Hono<AppEnv>()
     setSessionCookie(c, await recoveryLogin(c.var.db, await body(c, recoveryLoginSchema), metaOf(c)));
     return c.json({ ok: true });
   })
+  .post('/login/link', async (c) => {
+    setSessionCookie(c, await linkLogin(c.var.db, await body(c, linkLoginSchema), metaOf(c)));
+    return c.json({ ok: true });
+  })
+  .post('/link', requireSession, requireOwnerRole, async (c) => c.json(await createLinkCode(c.var.db, c.var.user, metaOf(c))))
   .post('/login/passkey/options', async (c) => c.json(await passkeys.authenticationOptions(c.var.db, rp(c), { now: Date.now() })))
   .post('/ping', requireSession, (c) => c.json({ ok: true }))
   .post('/unlock/options', requireSessionMaybeLocked, async (c) => c.json(await passkeys.authenticationOptions(c.var.db, rp(c), { now: Date.now(), userId: c.var.user.id })))

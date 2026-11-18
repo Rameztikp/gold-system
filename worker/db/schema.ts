@@ -44,6 +44,16 @@ export const recoveryCodes = sqliteTable('recovery_codes', {
   usedAt: integer('used_at'),
 }, (t) => [index('recovery_user').on(t.userId)]);
 
+/** رمز ربط جهاز جديد لصاحب المحل (D-30). */
+export const linkCodes = sqliteTable('link_codes', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  codeHash: text('code_hash').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  usedAt: integer('used_at'),
+}, (t) => [index('link_codes_user').on(t.userId)]);
+
 export const challenges = sqliteTable('challenges', {
   id: text('id').primaryKey(),
   challenge: text('challenge').notNull(),

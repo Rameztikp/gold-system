@@ -779,3 +779,8 @@ mark { background: var(--sel); color: var(--accent-text); border-radius: 3px; pa
 
 /* المجموع من أيام قليلة: تنبيه هادي فوق اللوحة */
 .cover { color: var(--warn); }
+
+/* رمز ربط جهاز جديد */
+.link-code { font-size: 40px; font-weight: 700; letter-spacing: .12em; text-align: center; margin: 14px 0 6px; color: var(--accent-text); }
+.link-steps { padding-inline-start: 22px; margin: 8px 0; }
+.link-steps li { margin: 4px 0; }
