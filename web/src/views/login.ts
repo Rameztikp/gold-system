@@ -1,17 +1,19 @@
 /* الدخول بشكل النموذج (viewLogin) — صاحب المحل بمفتاح المرور، ومدخل البيانات بكلمة المرور. */
 import { esc } from '../util';
+import { prepare } from '../passkey';
 import { diamond, ico } from '../icons';
 import { APP_NAME } from '../state';
 
-export const L: { mode: 'login' | 'setup' | 'afterSetup'; pick: 'owner' | 'clerk'; err: string; busy: boolean } = { mode: 'login', pick: 'owner', err: '', busy: false };
+export const L: { mode: 'login' | 'setup' | 'afterSetup'; pick: 'owner' | 'clerk'; err: string; busy: boolean; rec: boolean } = { mode: 'login', pick: 'owner', err: '', busy: false, rec: false };
 
 const top = (sub: string): string => `<div class="login-top">${diamond(52)}<h1 class="kufi">${APP_NAME}</h1><p class="sub">${sub}</p></div>`;
 const err = (): string => (L.err ? `<p class="err" role="alert" style="margin:12px 0 0">${esc(L.err)}</p>` : '');
 const wait = (label: string): string => (L.busy ? 'جاري الدخول…' : label);
 
 function ownerPart(): string {
+  if (!L.busy) prepare('/auth/login/passkey/options');
   return `<button type="button" class="btn-gold btn-wide" data-act="passkey"${L.busy ? ' disabled' : ''}>${ico('key', 18)} ${wait('الدخول بالبصمة (Face ID)')}</button>
-  <details class="rec" style="margin-top:14px"><summary class="u" style="cursor:pointer">ضاع الجوال؟ ادخل برمز استرجاع</summary>
+  <details class="rec" style="margin-top:14px"${L.rec ? ' open' : ''}><summary class="u" style="cursor:pointer">البصمة ما تشتغل أو ضاع الجوال؟ ادخل برمز استرجاع</summary>
     <label class="lb" for="r-user">اسم المستخدم</label><input class="in" id="r-user" name="r_user" autocapitalize="off" autocomplete="username">
     <label class="lb" for="r-code">رمز الاسترجاع</label><input class="in num" id="r-code" name="r_code" autocapitalize="characters" placeholder="XXXXX-XXXXX">
     <button class="btn-ghost btn-wide" type="submit" data-v="recovery" style="margin-top:12px">دخول برمز الاسترجاع</button></details>`;

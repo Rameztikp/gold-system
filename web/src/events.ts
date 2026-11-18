@@ -20,7 +20,7 @@ import { resetAdminCache } from './views/admin';
 import { L } from './views/login';
 import * as auth from './auth';
 import { filterField } from './fields';
-import { unlockWithKey, unlockWithPassword } from './lock';
+import { unlockWithKey, cancelUnlock, unlockWithPassword } from './lock';
 
 type Act = (el: HTMLElement) => void;
 
@@ -166,6 +166,8 @@ const ADMIN: Record<string, Act> = {
   passkey: () => auth.passkeyLogin(),
   enter: () => auth.enterAfterSetup(),
   unlockkey: () => unlockWithKey(),
+  unlockcancel: () => cancelUnlock(),
+  unlockrec: () => { void auth.logout({ recovery: true }); },
 };
 
 const ACTS: Record<string, Act> = { ...NAV, ...ENTRY, ...DASH, ...SEARCH, ...PHOTOS, ...ADMIN };

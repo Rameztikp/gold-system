@@ -1,10 +1,10 @@
 /* قفل التطبيق بعد عدم الاستخدام (D-26): صاحب المحل 5 دقائق ← بصمة، مدخل البيانات 15 دقيقة ← كلمة المرور. */
-import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
 import { IDLE_LOCK, PING_EVERY } from '../../shared/session-policy';
 import { esc } from './util';
 import { diamond, ico } from './icons';
 import { S, U, APP_NAME } from './state';
 import { api, ApiError, errorText } from './api';
+import { askPasskey, passkeyFailText, prepare } from './passkey';
 
 export const LOCK: { locked: boolean; last: number; lastPing: number; err: string; busy: boolean; afterUnlock: (() => Promise<void>) | null } =
   { locked: false, last: Date.now(), lastPing: Date.now(), err: '', busy: false, afterUnlock: null };
@@ -43,6 +43,7 @@ export const resetActivity = (): void => { LOCK.locked = false; LOCK.afterUnlock
 
 export function viewLock(): string {
   const owner = S.me.role === 'owner';
+  if (owner && !LOCK.busy) prepare('/auth/unlock/options');
   const err = LOCK.err ? `<p class="err" role="alert" style="margin:12px 0 0">${esc(LOCK.err)}</p>` : '';
   const body = owner
     ? `<button type="button" class="btn-gold btn-wide" data-act="unlockkey"${LOCK.busy ? ' disabled' : ''}>${ico('key', 18)} ${LOCK.busy ? 'جاري الفتح…' : 'افتح بالبصمة (Face ID)'}</button>`
@@ -52,26 +53,32 @@ export function viewLock(): string {
     <div class="login-top">${diamond(52)}<h1 class="kufi">${APP_NAME}</h1><p class="sub">النظام مقفول لأنه ما استُخدم من فترة.</p></div>
     <p class="sub" style="margin:0 0 12px">${esc(S.me.name)}</p>
     ${body}${err}
+    ${owner && LOCK.busy ? '<button type="button" class="btn-ghost btn-wide" data-act="unlockcancel" style="margin-top:10px">إلغاء</button>' : ''}
+    ${owner ? `<button type="button" class="btn-ghost btn-wide" data-act="unlockrec" style="margin-top:10px">${ico('key', 16)} ادخل برمز استرجاع</button>` : ''}
     <button type="button" class="btn-ghost btn-wide" data-act="logout" style="margin-top:10px">${ico('out', 16)} خروج</button>
   </div></div>`;
 }
 
+let tries = 0;
+/** زر «إلغاء» وقت الانتظار: يرجّع الشاشة، ورد البصمة المتأخر ينتجاهل. */
+export function cancelUnlock(): void { tries++; LOCK.busy = false; LOCK.err = ''; rerender(); }
+
 async function attempt(job: () => Promise<unknown>, fail: (e: unknown) => string): Promise<void> {
+  const my = ++tries;
   LOCK.busy = true; LOCK.err = ''; rerender();
   try {
     await job();
+    if (my !== tries) return;
     const after = LOCK.afterUnlock; LOCK.afterUnlock = null;
     resetActivity();
     if (after) await after(); else rerender();
-  } catch (e) { LOCK.busy = false; LOCK.err = fail(e); rerender(); }
+  } catch (e) { if (my !== tries) return; LOCK.busy = false; LOCK.err = fail(e); rerender(); }
 }
 
 export function unlockWithKey(): void {
   void attempt(async () => {
-    const { challengeId, options } = await api.post<{ challengeId: string; options: PublicKeyCredentialRequestOptionsJSON }>('/auth/unlock/options');
-    const response = await startAuthentication({ optionsJSON: options });
-    await api.post('/auth/unlock/passkey', { challengeId, response });
-  }, (e) => (e instanceof ApiError ? errorText(e) : 'ما تم التحقق بالبصمة. إذا هذا الجهاز ما عليه بصمة، اضغط «خروج» وادخل برمز استرجاع.'));
+    await api.post('/auth/unlock/passkey', await askPasskey('/auth/unlock/options'));
+  }, (e) => (e instanceof ApiError ? errorText(e) : passkeyFailText(e, true)));
 }
 
 export function unlockWithPassword(f: HTMLFormElement): void {

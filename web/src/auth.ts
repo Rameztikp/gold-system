@@ -1,10 +1,11 @@
 /* الدخول الحقيقي، تحميل البيانات، ومفاتيح المرور ورموز الاسترجاع والمستخدمين. */
-import { startAuthentication, startRegistration, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
+import { startRegistration, type PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
 import type { Day } from '../../shared/domain';
 import { esc, num } from './util';
 import { ico } from './icons';
 import { S, U, lastDay, type Branch, type Me } from './state';
 import { api, errorText, ApiError } from './api';
+import { askPasskey, passkeyFailText } from './passkey';
 import { render, openModal, closeModal, dlgHead, okToast, toast, toTop } from './ui';
 import { L } from './views/login';
 import { LOCK, resetActivity } from './lock';
@@ -49,10 +50,8 @@ const loginFail = (e: unknown): string => (e instanceof ApiError && e.status ===
 
 export function passkeyLogin(): void {
   void attempt(async () => {
-    const { challengeId, options } = await api.post<{ challengeId: string; options: PublicKeyCredentialRequestOptionsJSON }>('/auth/login/passkey/options');
-    const response = await startAuthentication({ optionsJSON: options });
-    await api.post('/auth/login/passkey/verify', { challengeId, response });
-  }, (e) => (e instanceof ApiError ? loginFail(e) : 'ما تم التحقق بالبصمة. جرّب مرة ثانية.'));
+    await api.post('/auth/login/passkey/verify', await askPasskey('/auth/login/passkey/options'));
+  }, (e) => (e instanceof ApiError ? loginFail(e) : passkeyFailText(e, false)));
 }
 
 export function submitLogin(f: HTMLFormElement, kind: string | undefined): void {
@@ -76,9 +75,10 @@ export function submitSetup(f: HTMLFormElement): void {
 
 export const enterAfterSetup = (): void => { void attempt(async () => undefined, errorText); };
 
-export async function logout(): Promise<void> {
+export async function logout(opts: { recovery?: boolean } = {}): Promise<void> {
   await api.post('/auth/logout').catch(() => undefined);
-  U.user = null; U.pv = null; S.days = {}; L.mode = 'login'; resetActivity(); L.err = ''; closeModal(); render(); toTop();
+  U.user = null; U.pv = null; S.days = {}; L.mode = 'login'; resetActivity(); L.err = ''; L.busy = false;
+  L.pick = opts.recovery ? 'owner' : L.pick; L.rec = Boolean(opts.recovery); closeModal(); render(); toTop();
 }
 
 /* ---------------------------------------------------------------- مفاتيح المرور ورموز الاسترجاع */
