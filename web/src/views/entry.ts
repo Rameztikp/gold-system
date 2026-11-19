@@ -2,7 +2,7 @@
 import { T, W, hasVal, CMP_ROWS, isW, type Day, type AnyLine } from '../../../shared/domain';
 import { esc, num, money, pr, g2, linesW, dayLong, dayMid } from '../util';
 import { ico } from '../icons';
-import { S, U, STEPS, dayIds, lastDay, type Step } from '../state';
+import { S, U, STEPS, dayIds, lastDay, type Step, isPending } from '../state';
 import { photosBtn, statusPill } from '../ui';
 
 export function viewEntry(): string {
@@ -52,7 +52,7 @@ export const commBtn = (d: Day, cls = 'btn-text'): string => `<button type="butt
 const addBtn = (act: string, label: string): string => `<button type="button" class="btn-gold" data-act="${act}"><i aria-hidden="true">+</i>${label}</button>`;
 const nextBtn = (s: Step, label: string): string => `<div class="step-next"><button type="button" class="btn-ghost" data-act="step" data-s="${s}" data-top="1">التالي: ${label}</button></div>`;
 const xNote = (l: AnyLine): string => (l.x ? `<span class="xr">ملغى: ${esc(l.x.r)}</span>` : '');
-const rowCls = (l: AnyLine): string => `ln${l.x ? ' is-x' : ''}${U.hl === l.id ? ' is-new' : ''}`;
+const rowCls = (l: AnyLine): string => `ln${l.x ? ' is-x' : ''}${U.hl === l.id ? ' is-new' : ''}${isPending(l.id) ? ' is-pending' : ''}`;
 const emptyRow = (msg: string): string => `<div class="empty">${msg}</div>`;
 const wCell = (w: number | null): string => (w === null ? '<span class="dim">بلا وزن</span>' : `${num(g2(w))} <span class="u">جم</span>`);
 

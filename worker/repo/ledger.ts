@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { type Db, schema } from '../db/client';
 
 const { ledgerDays, ledgerLines, dayPhotos } = schema;
@@ -9,17 +9,24 @@ export type PhotoRow = typeof dayPhotos.$inferSelect;
 export const getDayByDate = async (db: Db, branchId: string, date: string): Promise<DayRow | undefined> =>
   db.select().from(ledgerDays).where(and(eq(ledgerDays.branchId, branchId), eq(ledgerDays.date, date))).get();
 
-export const listDayRows = async (db: Db, branchId: string): Promise<DayRow[]> =>
-  db.select().from(ledgerDays).where(eq(ledgerDays.branchId, branchId)).orderBy(asc(ledgerDays.date));
+/** dates: أيام محددة فقط (للتحديث الجزئي)، بدونها كل الأيام. */
+export const listDayRows = async (db: Db, branchId: string, dates?: string[]): Promise<DayRow[]> =>
+  db.select().from(ledgerDays)
+    .where(and(eq(ledgerDays.branchId, branchId), dates ? inArray(ledgerDays.date, dates) : undefined))
+    .orderBy(asc(ledgerDays.date));
 
-export const listLineRows = async (db: Db, branchId: string, dayId?: string): Promise<LineRow[]> =>
+/** day: يوم واحد، أو قائمة أيام (للتحديث الجزئي)، أو كل الفرع. */
+const dayFilter = <C extends typeof ledgerLines.dayId | typeof dayPhotos.dayId>(col: C, day?: string | string[]) =>
+  day === undefined ? undefined : Array.isArray(day) ? inArray(col, day) : eq(col, day);
+
+export const listLineRows = async (db: Db, branchId: string, day?: string | string[]): Promise<LineRow[]> =>
   db.select().from(ledgerLines)
-    .where(dayId ? and(eq(ledgerLines.branchId, branchId), eq(ledgerLines.dayId, dayId)) : eq(ledgerLines.branchId, branchId))
+    .where(and(eq(ledgerLines.branchId, branchId), dayFilter(ledgerLines.dayId, day)))
     .orderBy(asc(ledgerLines.position));
 
-export const listPhotoRows = async (db: Db, branchId: string, dayId?: string): Promise<PhotoRow[]> =>
+export const listPhotoRows = async (db: Db, branchId: string, day?: string | string[]): Promise<PhotoRow[]> =>
   db.select().from(dayPhotos)
-    .where(and(eq(dayPhotos.branchId, branchId), isNull(dayPhotos.removedAt), dayId ? eq(dayPhotos.dayId, dayId) : undefined))
+    .where(and(eq(dayPhotos.branchId, branchId), isNull(dayPhotos.removedAt), dayFilter(dayPhotos.dayId, day)))
     .orderBy(asc(dayPhotos.createdAt));
 
 export const insertDayQuery = (db: Db, row: DayRow) => db.insert(ledgerDays).values(row);

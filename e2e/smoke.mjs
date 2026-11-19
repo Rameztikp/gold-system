@@ -14,7 +14,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME ?? '/
 const ctx = await browser.newContext({ locale: 'ar', viewport: { width: 1360, height: 900 } });
 const page = await ctx.newPage();
 const errors = [];
-page.on('console', (m) => { if (m.type() === 'error' && !/40[19]|423/.test(m.text())) errors.push(m.text()); });
+page.on('console', (m) => { if (m.type() === 'error' && !/40[19]|423|ERR_INTERNET_DISCONNECTED/.test(m.text())) errors.push(m.text()); });
 page.on('pageerror', (e) => { console.log('PAGEERROR', String(e)); errors.push(String(e)); });
 const cdp = await ctx.newCDPSession(page);
 await cdp.send('WebAuthn.enable');
@@ -23,7 +23,15 @@ const shot = (n) => page.screenshot({ path: `${SHOTS}/${n}.png`, fullPage: true 
 const step = (s) => console.log('✓', s);
 const M = '#modal-root';
 const fill = async (name, v) => { if (v !== null && v !== undefined && v !== '') await page.fill(`${M} [name="${name}"]`, String(v)); };
-const saveLine = async () => { await page.click(`${M} button[type=submit]`); await page.waitForFunction(() => !document.querySelector('#modal-root button[type=submit]')?.disabled); };
+const saveLine = async () => {
+  const n = await page.evaluate(() => document.querySelectorAll('.lines .ln').length);
+  await page.click(`${M} button[type=submit]`);
+  // السطر يظهر على طول؛ لو طلع خطأ أو سؤال التكرار نعرف فورًا بدل ما يضيع بصمت
+  await page.waitForFunction((n0) => document.querySelectorAll('.lines .ln').length > n0
+    || !document.querySelector('#modal-root [data-out=err]')?.hidden || !document.querySelector('#modal-root [data-out=dup]')?.hidden, n);
+  const err = await page.evaluate(() => { const e = document.querySelector('#modal-root [data-out=err]'); return e && !e.hidden ? e.textContent : ''; });
+  if (err) throw new Error('السطر ما انحفظ: ' + err);
+};
 
 async function setKarats(k) {
   await page.waitForSelector(`${M} .sug`, { state: 'hidden' }).catch(() => {});
@@ -80,10 +88,12 @@ step(`إدخال ${DAY.sales.length} سطر بيع عبر النافذة`);
 
 await page.click('[data-act=step][data-s=purch]');
 await page.click('[data-act="add-purch"]');
+await page.waitForTimeout(150);
 for (const l of DAY.purch) { await fill('a', l.a); await fill('g', l.g); await fill('m', l.m); await fill('d', l.d); await saveLine(); }
 await page.click(`${M} .dlg-h [data-act=close]`);
 await page.click('[data-act=step][data-s=exp]');
 await page.click('[data-act="add-exp"]');
+await page.waitForTimeout(150);
 for (const l of [...DAY.exp, ...DAY.wd.map((w) => ({ d: w.n === 'محمد' ? 'مصاريف محمد' : w.n, c: 'للموظفين', a: w.a, emp: w.n }))]) {
   await fill('a', l.a); await fill('d', l.d);
   await page.click(`${M} [data-chips=c] .chip[data-v="${l.c}"]`);
@@ -99,7 +109,7 @@ await page.click(`${M} button[type=submit]`);
 await page.waitForSelector(`${M} form`, { state: 'detached' });
 await page.click('[data-act=step][data-s=check]');
 for (const [k, v] of Object.entries(DAY.ledger)) await page.fill(`form[data-form=compare] [name=${k}]`, String(v));
-await page.waitForSelector('[data-act=cmpok]');
+await page.waitForSelector('[data-act=cmpok]', { timeout: 8000 }).catch(async (e) => { await shot('dbg-cmp'); console.log('DBG', JSON.stringify(await page.evaluate(async (id) => { const srv = await (await fetch(`/api/days/${id}`)).json(); return { srv: [srv.sales.length, srv.purch.length, srv.exp.length], ui: [...document.querySelectorAll('.lines .ln')].length, q: localStorage.length, txt: document.querySelector('form[data-form=compare]')?.innerText.slice(0, 900) }; }, DAY.id))); throw e; });
 await shot('02-compare');
 await page.click('[data-act=cmpok]');
 await page.waitForSelector('.dayhead .pill.ok');
@@ -118,10 +128,11 @@ await page.waitForSelector('.l-sales .ln.is-x', { state: 'detached' });
 step('إلغاء سطر بسبب ثم إرجاعه (واليوم رجع «لم يُقارن»)');
 
 await page.click('[data-act="add-sales"]');
+await page.waitForTimeout(150);
 const last = DAY.sales[DAY.sales.length - 1];
 await fill('p', last.p); await fill('g', last.g); await fill('m', last.m); await fill('d', last.d); await fill('mk', last.mk); await setKarats(last.k || '');
 await page.click(`${M} button[type=submit]`);
-await page.waitForSelector(`${M} [data-out=dup]:not([hidden])`);
+await page.waitForSelector(`${M} [data-out=dup]:not([hidden])`, { timeout: 8000 }).catch(async (e) => { await shot('dbg-dup'); console.log('DBG', await page.evaluate(() => ({ modal: document.querySelector('#modal-root')?.innerText.slice(0, 600), toast: document.querySelector('.toast, #toast')?.innerText }))); throw e; });
 await page.click(`${M} [data-act=dupno]`);
 await page.click(`${M} .dlg-h [data-act=close]`);
 step('سؤال السطر المكرر');
@@ -214,6 +225,47 @@ await page.click('form[data-form=login] button[type=submit]');
 await page.waitForSelector('.shell');
 if (await page.locator('.side [data-r=users]').count()) throw new Error('مدخل البيانات يرى الإدارة');
 step('مدخل البيانات بدون «الإدارة»');
+
+await page.click('.side [data-r=entry]');
+await page.click('[data-act=step][data-s=sales]');
+const nBefore = await page.locator('.l-sales .ln').count();
+await ctx.setOffline(true);
+await page.click('[data-act="add-sales"]');
+await page.waitForTimeout(150);
+{ const l = DAY.sales[0]; await fill('p', 1234); await fill('g', l.g); await fill('m', l.m); await fill('d', 'خاتم تجربة النت'); await fill('mk', l.mk); await setKarats(l.k || ''); }
+await page.click(`${M} button[type=submit]`);
+await page.waitForSelector('#netq');
+await page.click(`${M} .dlg-h [data-act=close]`);
+await page.waitForSelector('.l-sales .ln.is-pending');
+await shot('11-offline-pending');
+if (await page.locator('.l-sales .ln').count() !== nBefore + 1) throw new Error('السطر ما ظهر وهو بدون نت');
+await ctx.setOffline(false);
+await page.evaluate(() => window.dispatchEvent(new Event('online')));
+await page.waitForSelector('#netq', { state: 'detached', timeout: 15000 });
+await page.waitForSelector('.l-sales .ln.is-pending', { state: 'detached' });
+{
+  const srv = await page.evaluate(async (id) => (await (await fetch(`/api/days/${id}`)).json()).sales.length, DAY.id);
+  if (srv !== nBefore + 1) throw new Error(`الخادم عنده ${srv} سطور، المفروض ${nBefore + 1}`);
+}
+step('بدون نت: السطر يظهر «بانتظار الإرسال» وينرسل لحاله لما يرجع النت (مرة وحدة)');
+
+{
+  const ctx3 = await browser.newContext({ locale: 'ar', viewport: { width: 1360, height: 900 } });
+  const p3 = await ctx3.newPage();
+  await p3.goto(BASE);
+  await p3.click('[data-act=pick][data-v=clerk]');
+  await p3.fill('[name=user]', 'clerk1'); await p3.fill('[name=pw]', 'password-123456');
+  await p3.click('form[data-form=login] button[type=submit]');
+  await p3.waitForSelector('.shell');
+  const r = await p3.evaluate(async (id) => (await fetch(`/api/days/${id}/lines`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: crypto.randomUUID().replace(/^(.{14})./, '$17'), sec: 'exp', line: { d: 'تجربة التحديث التلقائي', c: 'أخرى', emp: '', a: 7 } }) })).status, DAY.id);
+  if (r !== 201) throw new Error('إضافة من جهاز ثاني: ' + r);
+  await ctx3.close();
+}
+await page.click('[data-act=step][data-s=exp]');
+await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+await page.waitForSelector('.l-exp .ln:has-text("تجربة التحديث التلقائي")', { timeout: 10000 });
+step('جهاز ثاني يضيف سطر ← يظهر هنا لحاله لما ترجع للتطبيق (بدون تحميل الصفحة)');
 
 idle(16);
 await page.reload();

@@ -6,15 +6,18 @@ import { ico } from './icons';
 import { S, U, lastDay, type Branch, type Me } from './state';
 import { api, errorText, ApiError } from './api';
 import { askPasskey, passkeyFailText } from './passkey';
+import { PENDING } from './state';
+import { markSynced, restoreOutbox } from './sync';
 import { render, openModal, closeModal, dlgHead, okToast, toast, toTop } from './ui';
 import { L } from './views/login';
 import { LOCK, resetActivity } from './lock';
 import { resetAdminCache, adminUsers } from './views/admin';
 
 export async function loadState(): Promise<void> {
-  const st = await api.get<{ me: Me; branch: Branch; days: Day[] }>('/state');
+  const st = await api.get<{ me: Me; branch: Branch; days: Day[]; now: number }>('/state');
   S.me = st.me; S.branch = st.branch; S.days = Object.fromEntries(st.days.map((d) => [d.id, d]));
   U.user = st.me.role === 'owner' ? 'owner' : 'clerk';
+  markSynced(st.now); restoreOutbox();
 }
 
 /** الجلسة موجودة بس مقفولة: نعرف صاحبها، نعرض القفل، وبعد الفتح نحمّل البيانات. */
@@ -105,6 +108,7 @@ export function submitSetup(f: HTMLFormElement): void {
 export const enterAfterSetup = (): void => { void attempt(async () => undefined, errorText); };
 
 export async function logout(opts: { recovery?: boolean } = {}): Promise<void> {
+  if (PENDING.size && !opts.recovery) { toast('في سطور ما انرسلت بعد. انتظر لين يرجع النت وتنرسل، بعدين اطلع.'); return; }
   await api.post('/auth/logout').catch(() => undefined);
   U.user = null; U.pv = null; S.days = {}; L.mode = 'login'; resetActivity(); L.err = ''; L.busy = false;
   L.pick = opts.recovery ? 'owner' : L.pick; L.rec = Boolean(opts.recovery); closeModal(); render(); toTop();

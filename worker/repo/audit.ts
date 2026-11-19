@@ -1,4 +1,4 @@
-import { and, eq, desc, lt } from 'drizzle-orm';
+import { and, eq, desc, gte, isNotNull, lt } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { type Db, schema } from '../db/client';
 
@@ -44,3 +44,10 @@ export const listAudit = async (db: Db, branchId: string, opts: { beforeId?: num
     .orderBy(desc(auditLog.id)).limit(opts.limit);
 
 export const insertSecurityEvent = (db: Db, row: typeof securityLog.$inferInsert) => db.insert(securityLog).values(row);
+
+/** الأيام اللي تغيّرت من وقت معيّن (كل تعديل على يوم ينكتب في السجل مع تاريخه). */
+export async function changedDayDates(db: Db, branchId: string, since: number): Promise<string[]> {
+  const rows = await db.selectDistinct({ d: auditLog.dayDate }).from(auditLog)
+    .where(and(eq(auditLog.branchId, branchId), gte(auditLog.at, since), isNotNull(auditLog.dayDate)));
+  return rows.map((r) => r.d).filter((d): d is string => Boolean(d));
+}

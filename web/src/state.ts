@@ -1,5 +1,5 @@
 /* الحالة — S بيانات الفرع من الخادم، و U حالة الواجهة (كما في النموذج). */
-import { T, live, r2, type Day, type Totals } from '../../shared/domain';
+import { T, live, r2, reopen, type AnyLine, type Day, type Sec, type Totals } from '../../shared/domain';
 import { add, dayLong, dayShort, dow, monthEnd, monthLabel, monthStart, spanDays, spanLabel, todayIn } from './util';
 
 export type Role = 'owner' | 'clerk';
@@ -48,7 +48,20 @@ export const today = (): string => todayIn(S.branch.timezone);
 
 export const dayIds = (): string[] => Object.keys(S.days).sort();
 export const lastDay = (): string => dayIds().slice(-1)[0] ?? today();
-export const applyDay = (d: Day): void => { S.days[d.id] = d; };
+/** سطور انضافت في الشاشة وما وصلت الخادم بعد (D-32). تبقى ظاهرة حتى لو وصل اليوم من الخادم بدونها. */
+export interface PendingLine { id: string; day: string; sec: Sec; line: Record<string, unknown> }
+export const PENDING = new Map<string, PendingLine>();
+export const isPending = (id: string): boolean => PENDING.has(id);
+
+/** يحط اليوم من الخادم، ويرجّع فوقه السطور اللي لسا بالانتظار. */
+export const applyDay = (d: Day): void => {
+  for (const p of PENDING.values()) {
+    if (p.day !== d.id) continue;
+    const arr = d[p.sec] as AnyLine[];
+    if (!arr.some((l) => l.id === p.id)) { arr.push({ ...p.line, id: p.id, v: 0 } as unknown as AnyLine); reopen(d); }
+  }
+  S.days[d.id] = d;
+};
 
 export interface Agg extends Totals { ids: string[]; per: (Totals & { id: string; buy: number | null; sell: number | null })[] }
 

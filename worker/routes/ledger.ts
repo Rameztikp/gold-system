@@ -11,7 +11,10 @@ import * as photos from '../services/photos';
 
 /** كل عملية ترجع اليوم كاملًا بشكل النموذج، والواجهة تستبدل نسختها به. */
 export const ledgerRoutes = new Hono<AppEnv>()
-  .get('/state', async (c) => c.json(await getState(ctxOf(c))))
+  .get('/state', async (c) => {
+    const s = Number(c.req.query('since'));
+    return c.json(await getState(ctxOf(c), Number.isSafeInteger(s) && s > 0 ? s : undefined));
+  })
   .post('/days', async (c) => c.json(await days.createDay(ctxOf(c), await body(c, newDaySchema)), 201))
   .get('/days/:date', async (c) => c.json(await days.dayView(ctxOf(c), c.req.param('date'))))
   .put('/days/:date/prices', async (c) => c.json(await days.setPrices(ctxOf(c), c.req.param('date'), await body(c, pricesSchema))))

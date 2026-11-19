@@ -784,3 +784,10 @@ mark { background: var(--sel); color: var(--accent-text); border-radius: 3px; pa
 .link-code { font-size: 40px; font-weight: 700; letter-spacing: .12em; text-align: center; margin: 14px 0 6px; color: var(--accent-text); }
 .link-steps { padding-inline-start: 22px; margin: 8px 0; }
 .link-steps li { margin: 4px 0; }
+
+/* سطر بانتظار الإرسال (النت ضعيف أو مقطوع) */
+.ln.is-pending { opacity: .62; }
+.ln.is-pending::after { content: 'بانتظار الإرسال'; font-size: 11px; color: var(--warn); margin-inline-start: 8px; white-space: nowrap; }
+#netq { position: fixed; inset-inline: 0; top: env(safe-area-inset-top, 0); margin: 8px auto 0; width: max-content; max-width: calc(100% - 24px);
+  background: var(--card); color: var(--warn); border: 1px solid var(--warn); box-shadow: 0 4px 16px rgba(0,0,0,.18); border-radius: 999px; padding: 6px 14px; font-size: 13px; z-index: 90;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }

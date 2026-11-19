@@ -1,7 +1,8 @@
 /* الحفظ: نفس شروط النموذج (readLine, saveLine, savePrices, saveDayData, saveCompare, newDay)، والخادم يتحقق مرة ثانية. */
 import { hasLetter, parseNum, sameLine, describe, diffText, SEC_ONE, uuidv7, type AnyLine, type Day, type Sec, type LedgerVals } from '../../../shared/domain';
 import { $$, esc, num, money, dayLong, dayShort, latin, NO_EMP } from '../util';
-import { S, U, applyDay } from '../state';
+import { S, U, applyDay, isPending } from '../state';
+import { enqueue } from '../sync';
 import { api, dayCall, errorText, ApiError } from '../api';
 import { render, closeModal, toast, okToast, go, toTop, modalRoot, app } from '../ui';
 import { inp, val, showDup, clearLine, liveUpdate, type LiveForm } from './live';
@@ -65,6 +66,7 @@ async function refreshDay(): Promise<void> {
 }
 
 async function saveEdit(f: LiveForm, o: { sec: Sec; data: Record<string, unknown> }): Promise<void> {
+  if (isPending(f.dataset.id ?? '')) { showErr(f, 'هذا السطر لسا ما انرسل. انتظر لين ينرسل، بعدين عدّله.'); return; }
   const day = S.days[U.day!]!; const arr = day[o.sec] as AnyLine[]; const l = arr.find((x) => x.id === f.dataset.id)!;
   const dt = diffText(o.sec, l, { ...l, ...o.data } as AnyLine);
   if (!dt) { closeModal(); toast('لم يتغير شيء'); return; }
@@ -99,10 +101,10 @@ export function saveLine(f: LiveForm): void {
   if (!f._dupOK && prev && !prev.x && sameLine(sec, prev, { id: '', ...data } as AnyLine)) { showDup(f, { desc: describe(sec, prev), no: arr.length }); return; }
   // المعرّف ثابت للسطر حتى يُحفظ، فإعادة المحاولة بعد انقطاع النت ما تكرّره
   const id = f._lineId ?? (f._lineId = uuidv7());
-  void busy(f, async () => {
-    await dayCall('post', `/days/${day.id}/lines`, { id, sec, line: data });
-    afterAdd(f, { sec, data });
-  });
+  // يظهر على طول وينرسل بالخلفية؛ لو النت مقطوع ينتظر وينرسل لحاله (D-32)
+  enqueue({ id, day: day.id, sec, line: data });
+  applyDay(day);
+  afterAdd(f, { sec, data });
 }
 
 export function savePrices(f: LiveForm): void {
