@@ -62,7 +62,11 @@ export function setTheme(t: string): void {
   try { localStorage.setItem(THEME_KEY, t); } catch { /* ignore */ }
 }
 export function loadTheme(): void {
-  try { const th = localStorage.getItem(THEME_KEY); if (th === 'light' || th === 'dark') document.documentElement.setAttribute('data-theme', th); } catch { /* ignore */ }
+  // اختيار المستخدم أولًا؛ وإذا ما اختار، يتبع إعداد الجهاز (فاتح بالنهار/داكن بالليل)
+  let th: string | null = null;
+  try { th = localStorage.getItem(THEME_KEY); } catch { /* ignore */ }
+  if (th !== 'light' && th !== 'dark') th = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', th);
 }
 export const themeSeg = (): string => `<div class="seg" role="group" aria-label="المظهر"><button type="button" data-act="theme" data-v="dark" aria-pressed="${curTheme() === 'dark'}">داكن</button><button type="button" data-act="theme" data-v="light" aria-pressed="${curTheme() === 'light'}">فاتح</button></div>`;
 
